@@ -31,9 +31,19 @@ export const INTEREST_TAGS = [
 export const MAX_INTERESTS = 3;
 
 export const BUDGET_LEVELS = [
-  { value: 'economy', label: '经济', description: '¥200~500/天/人，性价比优先', icon: '💼' },
-  { value: 'comfort', label: '舒适', description: '¥500~1200/天/人，品质与性价比平衡', icon: '⭐' },
-  { value: 'luxury', label: '豪华', description: '¥1200~3000/天/人，高端酒店 + 专车', icon: '🏆' },
+  { value: 'economy', label: '经济', description: '¥200~500/天/人，性价比优先', icon: 'wallet' },
+  {
+    value: 'comfort',
+    label: '舒适',
+    description: '¥500~1200/天/人，品质与性价比平衡',
+    icon: 'gem',
+  },
+  {
+    value: 'luxury',
+    label: '豪华',
+    description: '¥1200~3000/天/人，高端酒店 + 专车',
+    icon: 'crown',
+  },
 ] as const;
 
 export const PACE_LEVELS = [
@@ -55,4 +65,12 @@ export const TIME_PERIODS = [
   { value: 'morning', label: '上午', range: '06:00~12:00' },
   { value: 'afternoon', label: '下午', range: '12:00~18:00' },
   { value: 'evening', label: '晚上', range: '18:00~24:00' },
+] as const;
+
+export const TRANSPORT_OPTIONS = [
+  { value: 'auto', label: '智能推荐' },
+  { value: 'high_speed_rail', label: '高铁' },
+  { value: 'normal_train', label: '普速火车' },
+  { value: 'flight', label: '航班' },
+  { value: 'bus', label: '大巴' },
 ] as const;

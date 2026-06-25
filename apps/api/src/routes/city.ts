@@ -6,7 +6,8 @@
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { searchPOI, getPOIDetail, getSupportedCities } from '../services/city_service.js';
-import { CityNotFoundError } from '../types/errors.js';
+import { CityNotFoundError, ExternalAPIError } from '../types/errors.js';
+import { ErrorCode } from '@path-wise/shared';
 import { successResponse, errorResponse } from '../utils/response.js';
 
 export async function cityRoutes(fastify: FastifyInstance): Promise<void> {
@@ -45,9 +46,13 @@ export async function cityRoutes(fastify: FastifyInstance): Promise<void> {
         return reply.send(successResponse({ cityName, pois, total: pois.length }));
       } catch (error) {
         if (error instanceof CityNotFoundError) {
-          return reply.status(404).send(errorResponse(error.code, error.message));
+          return reply.status(404).send(errorResponse(ErrorCode.CITY_NOT_FOUND, error.message));
         }
-        throw error;
+        throw new ExternalAPIError(
+          '高德地图',
+          error instanceof Error ? error.message : '未知错误',
+          'POI 搜索异常',
+        );
       }
     },
   );
@@ -66,7 +71,7 @@ export async function cityRoutes(fastify: FastifyInstance): Promise<void> {
       const { cityName, poiId } = request.params;
       const poi = await getPOIDetail(cityName, poiId);
       if (!poi) {
-        return reply.status(404).send(errorResponse(20005, 'POI 不存在'));
+        return reply.status(404).send(errorResponse(ErrorCode.RESOURCE_NOT_FOUND, 'POI 不存在'));
       }
       return reply.send(successResponse(poi));
     },

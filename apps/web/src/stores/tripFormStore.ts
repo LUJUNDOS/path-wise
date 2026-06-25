@@ -1,12 +1,12 @@
 import { create } from 'zustand';
 import type {
-  Departure,
   Destination,
   TravelerGroup,
   TripPreferences,
   BudgetLevel,
   PaceLevel,
   TimePeriod,
+  TransportType,
 } from '@path-wise/shared';
 
 interface TripFormState {
@@ -18,12 +18,15 @@ interface TripFormState {
   travelers: TravelerGroup;
   preferences: TripPreferences;
   showPreferences: boolean;
+  needsReturnTransport: boolean;
+  returnTransportPref: TransportType | 'auto';
 
   // Actions
   setDepartureCity: (city: string) => void;
   addDestination: (cityName: string, days?: number) => void;
   removeDestination: (index: number) => void;
   updateDestinationDays: (index: number, days: number) => void;
+  updateDestinationTransport: (index: number, transport: TransportType | null) => void;
   reorderDestinations: (fromIndex: number, toIndex: number) => void;
   setDepartureDate: (date: string) => void;
   setTimePeriod: (period: TimePeriod) => void;
@@ -35,6 +38,8 @@ interface TripFormState {
   setAccommodation: (accommodation: string) => void;
   setInterests: (interests: string[]) => void;
   setDining: (dining: string[]) => void;
+  setNeedsReturnTransport: (needs: boolean) => void;
+  setReturnTransportPref: (pref: TransportType | 'auto') => void;
   togglePreferences: () => void;
   resetForm: () => void;
 }
@@ -59,6 +64,8 @@ export const useTripFormStore = create<TripFormState>((set) => ({
   travelers: { adults: 1, children: [], elders: 0 },
   preferences: { ...DEFAULT_PREFERENCES },
   showPreferences: false,
+  needsReturnTransport: true, // 默认勾选
+  returnTransportPref: 'auto',
 
   setDepartureCity: (city: string) => set({ departureCity: city }),
 
@@ -75,6 +82,13 @@ export const useTripFormStore = create<TripFormState>((set) => ({
   updateDestinationDays: (index: number, days: number) =>
     set((state) => ({
       destinations: state.destinations.map((d, i) => (i === index ? { ...d, days } : d)),
+    })),
+
+  updateDestinationTransport: (index: number, transport: TransportType | null) =>
+    set((state) => ({
+      destinations: state.destinations.map((d, i) =>
+        i === index ? { ...d, transportTo: transport } : d,
+      ),
     })),
 
   reorderDestinations: (fromIndex: number, toIndex: number) =>
@@ -128,6 +142,11 @@ export const useTripFormStore = create<TripFormState>((set) => ({
       preferences: { ...state.preferences, dining },
     })),
 
+  setNeedsReturnTransport: (needsReturnTransport: boolean) => set({ needsReturnTransport }),
+
+  setReturnTransportPref: (returnTransportPref: TransportType | 'auto') =>
+    set({ returnTransportPref }),
+
   togglePreferences: () => set((state) => ({ showPreferences: !state.showPreferences })),
 
   resetForm: () =>
@@ -139,5 +158,7 @@ export const useTripFormStore = create<TripFormState>((set) => ({
       travelers: { adults: 1, children: [], elders: 0 },
       preferences: { ...DEFAULT_PREFERENCES },
       showPreferences: false,
+      needsReturnTransport: true,
+      returnTransportPref: 'auto',
     }),
 }));

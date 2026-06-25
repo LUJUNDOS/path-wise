@@ -54,7 +54,3 @@ CLAUDE.local.md
 
 # Workbuddy personal overrides
 .workbuddy/
-
-# CODE_MAP change snapshot
-.code-map-snapshot.json
-.claude/.code-map-changes.md

@@ -85,13 +85,29 @@ PATH-WISE — 旅游攻略生成平台（全栈 TypeScript，pnpm monorepo）。
 
 ## 5. CODE_MAP.md 自动同步
 
-每次对话开始时，`SessionStart` hook 自动运行 `scripts/sync-code-map.ps1`，对比 `docs/` 和 `apps/` 与上次快照的差异。如有变更，写入 `.claude/.code-map-changes.md`。
+每次对话开始时，`SessionStart` hook 自动运行 `scripts/sync-code-map.ps1`，对比以下目录与上次快照的差异：
+
+| 监控目录    | 对应 CODE_MAP.md 章节 |
+| ----------- | --------------------- |
+| `docs/`     | 八、设计文档          |
+| `apps/`     | 二（api）+ 三（web）  |
+| `packages/` | 四、共享包            |
+| `docker/`   | 五、基础设施          |
+| `scripts/`  | 七、工具脚本          |
+| `.claude/`  | 九、Claude Code 配置  |
+| 根配置      | 六、根配置文件        |
+
+如有变更，写入 `.claude/.code-map-changes.md`（含新增/删除/修改文件列表 + 受影响章节提示）。
 
 ### 你必须执行
 
 1. 对话开始时，**先检查** `.claude/.code-map-changes.md` 是否存在
-2. 如存在，**立即阅读**并按变更清单更新 [CODE_MAP.md](CODE_MAP.md)，然后**删除该报告文件**
-3. 如不存在，跳过
+2. 如存在，**立即阅读**并按变更清单更新 [CODE_MAP.md](CODE_MAP.md)：
+   - 新增文件 → 添加对应条目（文件名 + 行数 + 职责）
+   - 删除文件 → 移除对应条目
+   - 修改文件 → 更新行数 / 职责描述
+   - 注意报告中 `📋 需更新的 CODE_MAP.md 章节` 提示
+3. 更新完成后**删除** `.claude/.code-map-changes.md`
 
 > `.code-map-snapshot.json` 由脚本自动维护，不要手动编辑。新增目录/模块后仍应主动更新 [CODE_MAP.md](CODE_MAP.md)。
 
@@ -108,4 +124,4 @@ PATH-WISE — 旅游攻略生成平台（全栈 TypeScript，pnpm monorepo）。
 
 ---
 
-> **最后更新**：2026-06-23
+> **最后更新**：2026-06-25

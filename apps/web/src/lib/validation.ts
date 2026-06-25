@@ -81,7 +81,7 @@ export function validateHomeForm(data: FormData): ValidationError[] {
 export function validateField(
   field: string,
   value: unknown,
-  allData: FormData,
+  _allData: FormData,
 ): ValidationError | null {
   switch (field) {
     case 'departureCity':

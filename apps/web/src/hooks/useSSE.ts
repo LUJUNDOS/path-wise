@@ -107,9 +107,11 @@ export function useSSE() {
   const connect = useCallback(
     (url: string, options: SSEConnectOptions) => {
       const store = useGenerationStore.getState();
-      if (store.status !== 'idle' && store.status !== 'error') {
-        useGenerationStore.setState({ status: 'connecting' });
+      if (store.status === 'streaming' || store.status === 'connecting') {
+        // already streaming — skip
+        return;
       }
+      useGenerationStore.setState({ status: 'connecting' });
 
       const controller = new AbortController();
       abortRef.current = controller;
@@ -125,8 +127,14 @@ export function useSSE() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(options.body),
         signal: controller.signal,
+        credentials: 'omit',
       })
         .then(async (response) => {
+          if (connectTimerRef.current) {
+            clearTimeout(connectTimerRef.current);
+            connectTimerRef.current = null;
+          }
+
           if (!response.ok) {
             clearTimers();
             const errorBody = await response.json().catch(() => null);

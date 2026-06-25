@@ -9,8 +9,13 @@
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import type { TripGenerateRequest } from '@path-wise/shared';
-import { validateTripRequest, generateMockDay } from '../services/trip_service.js';
+import type { TripGenerateRequest, TripResponse, DayPlan } from '@path-wise/shared';
+import {
+  validateTripRequest,
+  generateMockDay,
+  saveTrip,
+  getMockTransport,
+} from '../services/trip_service.js';
 import { createSSEStream } from '../utils/sseStream.js';
 import { successResponse, errorResponse } from '../utils/response.js';
 
@@ -23,6 +28,7 @@ export async function tripGenerateRoutes(fastify: FastifyInstance): Promise<void
    */
   fastify.post('/trips/generate', async (request: FastifyRequest, reply: FastifyReply) => {
     const body = request.body as TripGenerateRequest;
+    reply.header('Access-Control-Allow-Origin', '*');
 
     // 参数校验
     if (!body.destinations?.length) {
@@ -53,7 +59,15 @@ export async function tripGenerateRoutes(fastify: FastifyInstance): Promise<void
 
     // 逐城市、逐天生成（MVP: mock 数据，后续接入 LLM）
     let dayIndex = 1;
-    for (const dest of body.destinations) {
+    const days: DayPlan[] = [];
+    const departureCity = body.departure.city;
+    for (let ci = 0; ci < body.destinations.length; ci++) {
+      const dest = body.destinations[ci];
+      const prevCity = ci === 0 ? departureCity : body.destinations[ci - 1].cityName;
+      const transport =
+        ci === 0
+          ? getMockTransport(departureCity, dest.cityName)
+          : getMockTransport(prevCity, dest.cityName);
       for (let d = 0; d < dest.days; d++) {
         await new Promise((r) => setTimeout(r, MOCK_DAY_DELAY_MS));
 
@@ -72,7 +86,10 @@ export async function tripGenerateRoutes(fastify: FastifyInstance): Promise<void
           d === 0,
           dest.days,
           body.preferences,
+          d === 0 ? transport : null,
         );
+
+        days.push(mockDay);
 
         sse.send('day_ready', {
           dayIndex,
@@ -83,8 +100,18 @@ export async function tripGenerateRoutes(fastify: FastifyInstance): Promise<void
       }
     }
 
-    // 完成
-    const totalCost = 5000 + Math.round(Math.random() * 3000);
+    // 完成：计算实际总花费
+    const totalCost =
+      days.reduce((sum: number, day: DayPlan) => {
+        let dayCost = 0;
+        for (const item of day.timeline) {
+          dayCost += item.estimatedCostCNY || 0;
+        }
+        if (day.accommodation) {
+          dayCost += day.accommodation.primary.pricePerNight;
+        }
+        return sum + dayCost;
+      }, 0) + Math.round(days.length * 200); // + 日均杂费（市内交通、小吃等）
     const tripId = `trip_${Date.now().toString(36)}`;
     sse.send('done', {
       tripId,
@@ -93,6 +120,20 @@ export async function tripGenerateRoutes(fastify: FastifyInstance): Promise<void
       summary: `已为你生成 ${totalDays} 天行程，预计总花费约 ¥${totalCost}`,
       shareUrl: `https://tripplanner.com/share/${tripId}`,
     });
+
+    // 保存到内存存储，供 TripResultPage 查询
+    const tripResponse: TripResponse = {
+      tripId,
+      title: `${body.destinations.map((d) => d.cityName).join(' → ')} ${totalDays} 日游`,
+      generateTime: new Date().toISOString(),
+      totalDays,
+      totalEstimatedCostCNY: totalCost,
+      departureCity: body.departure.city,
+      status: 'completed',
+      days,
+      shareUrl: `https://tripplanner.com/share/${tripId}`,
+    };
+    saveTrip(tripResponse);
 
     sse.end();
   });

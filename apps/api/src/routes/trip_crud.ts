@@ -21,6 +21,7 @@ import {
   deleteTrip,
   exportTrip,
 } from '../services/trip_service.js';
+import { ErrorCode } from '@path-wise/shared';
 import { successResponse, errorResponse } from '../utils/response.js';
 
 export async function tripCrudRoutes(fastify: FastifyInstance): Promise<void> {
@@ -29,6 +30,7 @@ export async function tripCrudRoutes(fastify: FastifyInstance): Promise<void> {
    */
   fastify.post('/trips/validate', async (request: FastifyRequest, reply: FastifyReply) => {
     const body = request.body as TripGenerateRequest;
+    reply.header('Access-Control-Allow-Origin', '*');
     const result = validateTripRequest(body);
     return reply.send(successResponse(result));
   });
@@ -64,7 +66,7 @@ export async function tripCrudRoutes(fastify: FastifyInstance): Promise<void> {
 
       const trip = await getTrip(tripId);
       if (!trip) {
-        return reply.status(404).send(errorResponse(20005, '攻略不存在'));
+        return reply.status(404).send(errorResponse(ErrorCode.RESOURCE_NOT_FOUND, '攻略不存在'));
       }
 
       return reply.send(successResponse(trip));
@@ -84,7 +86,9 @@ export async function tripCrudRoutes(fastify: FastifyInstance): Promise<void> {
       const day = await getDayPlan(tripId, parseInt(dayIndex, 10));
 
       if (!day) {
-        return reply.status(404).send(errorResponse(20005, '该天行程不存在'));
+        return reply
+          .status(404)
+          .send(errorResponse(ErrorCode.RESOURCE_NOT_FOUND, '该天行程不存在'));
       }
 
       return reply.send(successResponse(day));

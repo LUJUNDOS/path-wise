@@ -41,14 +41,13 @@ export enum ErrorCode {
   INTERNAL_ERROR = 50002,
   SERVICE_BUSY = 50003,
 
-  // 业务错误（兼容 docs/错误处理规范文档 旧版命名）
-  BAD_GATEWAY = 502,
-  SERVICE_UNAVAILABLE = 503,
-  GATEWAY_TIMEOUT = 504,
-  TRANSPORT_SEARCH_FAILED = 1002,
-  CITY_NOT_FOUND = 1003,
-  LLM_API_ERROR = 1004,
-  DATABASE_ERROR = 1005,
+  // 业务错误别名（兼容旧版命名，使用独立值，落在合法分段内）
+  // TRANSPORT_SEARCH_FAILED: 5xxxx 段 → 50004
+  // CITY_NOT_FOUND: 4xxxx 段 → 40005
+  // LLM_API_ERROR: 5xxxx 段 → 50005
+  TRANSPORT_SEARCH_FAILED = 50004,
+  CITY_NOT_FOUND = 40005,
+  LLM_API_ERROR = 50005,
 
   // 限流
   RATE_LIMIT_TRIP_GENERATE = 42901,
@@ -85,10 +84,6 @@ export const ErrorMessageMap: Record<number, string> = {
   [ErrorCode.TRIP_GENERATION_FAILED]: '攻略生成失败，请重试',
   [ErrorCode.INTERNAL_ERROR]: '服务器内部错误，请稍后重试',
   [ErrorCode.SERVICE_BUSY]: '服务繁忙，请稍后重试',
-
-  [ErrorCode.TRANSPORT_SEARCH_FAILED]: '交通信息查询失败',
-  [ErrorCode.CITY_NOT_FOUND]: '该城市暂不支持',
-  [ErrorCode.LLM_API_ERROR]: 'AI 服务暂不可用',
 
   [ErrorCode.RATE_LIMIT_TRIP_GENERATE]: '攻略生成次数超限，请 1 小时后再试',
   [ErrorCode.RATE_LIMIT_GLOBAL]: '请求频率超限，请稍后再试',

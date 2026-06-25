@@ -54,6 +54,8 @@ export interface TripGenerateRequest {
   destinations: Destination[];
   travelers: TravelerGroup;
   preferences: TripPreferences;
+  needsReturnTransport?: boolean; // 默认 true，是否预定返程票
+  returnTransportPref?: TransportType | 'auto'; // 返程偏好，默认 auto
   options?: TripOptions;
 }
 

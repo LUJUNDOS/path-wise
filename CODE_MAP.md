@@ -1,4 +1,4 @@
-# PATH-WISE · 代码地图
+﻿# PATH-WISE · 代码地图
 
 > **生成日期**：2026-06-23
 > **总代码行数**：~3,900 行（不含 docs、config）
@@ -166,11 +166,71 @@ path-wise/
 | ------------------------------------------------- | --- | ---------------------------------------------------------------------- |
 | [src/main.tsx](apps/web/src/main.tsx)             | 18  | React 入口：BrowserRouter + QueryClientProvider + StrictMode           |
 | [src/App.tsx](apps/web/src/App.tsx)               | 15  | Routes 容器 + 标题                                                     |
-| [src/index.css](apps/web/src/index.css)           | 28  | Tailwind 指令 + shadcn/ui CSS 变量                                     |
-| [tailwind.config.ts](apps/web/tailwind.config.ts) | 50  | shadcn/ui 主题配置                                                     |
+| [src/index.css](apps/web/src/index.css)           | 120 | Tailwind 指令 + Wanderlust Editorial 色彩系统 + 暗黑模式               |
+| [tailwind.config.ts](apps/web/tailwind.config.ts) | 84  | 品牌色/字体/阴影/动画 keyframes 配置                                   |
 | [package.json](apps/web/package.json)             | —   | react 18.3、react-router-dom、@tanstack/react-query、zustand、tailwind |
 
-### 3.2 页面 · `src/pages/`\n\n| 文件 | 行 | 职责 |\n|------|-----|------|\n| [src/pages/HomePage.tsx](apps/web/src/pages/HomePage.tsx) | 282 | 首页表单 |\n| [src/pages/GeneratingPage.tsx](apps/web/src/pages/GeneratingPage.tsx) | 277 | SSE 生成进度页 |\n| [src/pages/TripResultPage.tsx](apps/web/src/pages/TripResultPage.tsx) | 199 | 攻略结果页 |\n| [src/pages/NotFoundPage.tsx](apps/web/src/pages/NotFoundPage.tsx) | 26 | 404 页面 |\n| [src/pages/ShareViewPage.tsx](apps/web/src/pages/ShareViewPage.tsx) | 31 | 分享查看（占位） |\n| [src/pages/HistoryPage.tsx](apps/web/src/pages/HistoryPage.tsx) | 30 | 历史攻略（占位） |\n\n### 3.3 组件 · `src/components/`\n\n| 文件 | 行 | 职责 |\n|------|-----|------|\n| [common/ErrorBoundary.tsx](apps/web/src/components/common/ErrorBoundary.tsx) | 44 | ErrorBoundary |\n| [common/LoadingSpinner.tsx](apps/web/src/components/common/LoadingSpinner.tsx) | 23 | 加载旋转器 |\n| [common/EmptyState.tsx](apps/web/src/components/common/EmptyState.tsx) | 29 | 空状态 |\n| [trip/CitySelector.tsx](apps/web/src/components/trip/CitySelector.tsx) | 219 | 城市选择器 |\n| [trip/DestinationInput.tsx](apps/web/src/components/trip/DestinationInput.tsx) | 120 | 目的地输入 |\n| [trip/TravelerCounter.tsx](apps/web/src/components/trip/TravelerCounter.tsx) | 159 | 人数选择 |\n| [trip/PreferencesPanel.tsx](apps/web/src/components/trip/PreferencesPanel.tsx) | 204 | 偏好面板 |\n| [trip/DatePicker.tsx](apps/web/src/components/trip/DatePicker.tsx) | 78 | 日期选择 |\n| [trip/ConflictWarningModal.tsx](apps/web/src/components/trip/ConflictWarningModal.tsx) | 117 | 冲突警告弹窗 |\n| [itinerary/DayPlanCard.tsx](apps/web/src/components/itinerary/DayPlanCard.tsx) | 365 | 日行程卡片 |\n| [ui/\*.tsx](apps/web/src/components/ui/) | ~400 | shadcn/ui 组件（11 个） |\n\n### 3.4 Hooks · `src/hooks/`\n\n| 文件 | 行 | 职责 |\n|------|-----|------|\n| [useSSE.ts](apps/web/src/hooks/useSSE.ts) | 146 | SSE 连接管理 |\n\n### 3.5 工具库 · `src/lib/`\n\n| 文件 | 行 | 职责 |\n|------|-----|------|\n| [apiClient.ts](apps/web/src/lib/apiClient.ts) | 55 | Axios 封装 |\n| [validation.ts](apps/web/src/lib/validation.ts) | 104 | 表单校验 |\n| [format.ts](apps/web/src/lib/format.ts) | 32 | 数据格式化 |\n| [constants.ts](apps/web/src/lib/constants.ts) | 38 | 前端常量 |\n| [utils.ts](apps/web/src/lib/utils.ts) | 9 | cn() 类名合并 |\n| [index.ts](apps/web/src/lib/index.ts) | 3 | barrel export |\n\n### 3.6 状态管理 · `src/stores/`\n\n| 文件 | 行 | 职责 |\n|------|-----|------|\n| [tripFormStore.ts](apps/web/src/stores/tripFormStore.ts) | 149 | 表单 Zustand |\n| [generationStore.ts](apps/web/src/stores/generationStore.ts) | 149 | SSE 状态机 |\n\n### 3.7 测试 · `tests/`\n\n| 文件 | 行 | 职责 |\n|------|-----|------|\n| [App.test.tsx](apps/web/tests/App.test.tsx) | 201 | 路由集成测试 |
+### 3.2 页面 · `src/pages/`
+
+| 文件                                                                  | 行   | 职责                                   |
+| --------------------------------------------------------------------- | ---- | -------------------------------------- |
+| [src/pages/HomePage.tsx](apps/web/src/pages/HomePage.tsx)             | 200+ | 首页：Hero 区域 + Glass morph 表单卡片 |
+| [src/pages/GeneratingPage.tsx](apps/web/src/pages/GeneratingPage.tsx) | 259  | SSE 进度页：骨架屏 + 品牌加载动画      |
+| [src/pages/TripResultPage.tsx](apps/web/src/pages/TripResultPage.tsx) | 210  | 攻略结果页：行程摘要侧栏               |
+| [src/pages/NotFoundPage.tsx](apps/web/src/pages/NotFoundPage.tsx)     | 26   | 404 页面                               |
+| [src/pages/ShareViewPage.tsx](apps/web/src/pages/ShareViewPage.tsx)   | 31   | 分享查看（占位）                       |
+| [src/pages/HistoryPage.tsx](apps/web/src/pages/HistoryPage.tsx)       | 30   | 历史攻略（占位）                       |
+
+### 3.3 组件 · `src/components/`
+
+| 文件                                                                                       | 行   | 职责                                            |
+| ------------------------------------------------------------------------------------------ | ---- | ----------------------------------------------- |
+| [common/ErrorBoundary.tsx](apps/web/src/components/common/ErrorBoundary.tsx)               | 44   | ErrorBoundary                                   |
+| [common/LoadingSpinner.tsx](apps/web/src/components/common/LoadingSpinner.tsx)             | 23   | 加载旋转器                                      |
+| [common/EmptyState.tsx](apps/web/src/components/common/EmptyState.tsx)                     | 29   | 空状态                                          |
+| [common/ThemeToggle.tsx](apps/web/src/components/common/ThemeToggle.tsx)                   | 28   | 日/夜模式切换按钮（新增）                       |
+| [trip/CitySelector.tsx](apps/web/src/components/trip/CitySelector.tsx)                     | 219  | 城市选择器                                      |
+| [trip/DestinationInput.tsx](apps/web/src/components/trip/DestinationInput.tsx)             | 120  | 目的地输入                                      |
+| [trip/TravelerCounter.tsx](apps/web/src/components/trip/TravelerCounter.tsx)               | 159  | 人数选择                                        |
+| [trip/PreferencesPanel.tsx](apps/web/src/components/trip/PreferencesPanel.tsx)             | 204  | 偏好面板                                        |
+| [trip/DatePicker.tsx](apps/web/src/components/trip/DatePicker.tsx)                         | 78   | 日期选择                                        |
+| [trip/ConflictWarningModal.tsx](apps/web/src/components/trip/ConflictWarningModal.tsx)     | 117  | 冲突警告弹窗                                    |
+| [itinerary/DayPlanCard.tsx](apps/web/src/components/itinerary/DayPlanCard.tsx)             | 365  | 日行程卡片                                      |
+| [itinerary/TimelineItemRow.tsx](apps/web/src/components/itinerary/TimelineItemRow.tsx)     | 110  | 时间线行                                        |
+| [itinerary/TransportInfoCard.tsx](apps/web/src/components/itinerary/TransportInfoCard.tsx) | —    | 交通信息卡片                                    |
+| [itinerary/AccommodationCard.tsx](apps/web/src/components/itinerary/AccommodationCard.tsx) | —    | 住宿信息卡片                                    |
+| [ui/\*.tsx](apps/web/src/components/ui/)                                                   | ~500 | shadcn/ui 组件（14 个，含 tooltip & separator） |
+
+### 3.4 Hooks · `src/hooks/`
+
+| 文件                                          | 行  | 职责                                        |
+| --------------------------------------------- | --- | ------------------------------------------- |
+| [useSSE.ts](apps/web/src/hooks/useSSE.ts)     | 259 | SSE 连接管理                                |
+| [useTheme.ts](apps/web/src/hooks/useTheme.ts) | 49  | 主题切换：light/dark + localStorage（新增） |
+
+### 3.5 工具库 · `src/lib/`
+
+| 文件                                            | 行  | 职责          |
+| ----------------------------------------------- | --- | ------------- |
+| [apiClient.ts](apps/web/src/lib/apiClient.ts)   | 55  | Axios 封装    |
+| [validation.ts](apps/web/src/lib/validation.ts) | 104 | 表单校验      |
+| [format.ts](apps/web/src/lib/format.ts)         | 32  | 数据格式化    |
+| [constants.ts](apps/web/src/lib/constants.ts)   | 38  | 前端常量      |
+| [utils.ts](apps/web/src/lib/utils.ts)           | 9   | cn() 类名合并 |
+| [index.ts](apps/web/src/lib/index.ts)           | 3   | barrel export |
+
+### 3.6 状态管理 · `src/stores/`
+
+| 文件                                                         | 行  | 职责         |
+| ------------------------------------------------------------ | --- | ------------ |
+| [tripFormStore.ts](apps/web/src/stores/tripFormStore.ts)     | 149 | 表单 Zustand |
+| [generationStore.ts](apps/web/src/stores/generationStore.ts) | 149 | SSE 状态机   |
+
+### 3.7 测试 · `tests/`
+
+| 文件                                        | 行  | 职责         |
+| ------------------------------------------- | --- | ------------ |
+| [App.test.tsx](apps/web/tests/App.test.tsx) | 201 | 路由集成测试 |
 
 ---
 
@@ -311,9 +371,9 @@ path-wise/
 
 | 指标         | 数值                          |
 | ------------ | ----------------------------- |
-| 总源代码行数 | ~3,900                        |
+| 总源代码行数 | ~6,400                        |
 | 后端         | ~2,600 行（含 prisma schema） |
-| 前端         | ~150 行（骨架）               |
+| 前端         | ~3,500 行                     |
 | 共享类型     | ~800 行                       |
 | 设计文档     | 37 份                         |
 | API 接口     | 24 + 2（全 stub 实现）        |
@@ -324,5 +384,5 @@ path-wise/
 
 ---
 
-> **最后更新**：2026-06-23
+> **最后更新**：2026-06-25
 > **依据**：项目文件扫描 + `docs/` 目录

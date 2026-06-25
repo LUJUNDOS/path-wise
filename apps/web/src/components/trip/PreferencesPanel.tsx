@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
+import { Wallet, Gem, Crown } from 'lucide-react';
 import {
   BUDGET_LEVELS,
   PACE_LEVELS,
@@ -10,6 +11,12 @@ import {
   MAX_INTERESTS,
 } from '@/lib/constants';
 import type { BudgetLevel, PaceLevel } from '@path-wise/shared';
+
+const BUDGET_ICONS: Record<string, React.ReactNode> = {
+  wallet: <Wallet className="h-5 w-5" />,
+  gem: <Gem className="h-5 w-5" />,
+  crown: <Crown className="h-5 w-5" />,
+};
 
 interface PreferencesPanelProps {
   budget: BudgetLevel;
@@ -73,15 +80,25 @@ export function PreferencesPanel({
               key={item.value}
               type="button"
               className={cn(
-                'rounded-lg border px-3 py-2 text-center text-sm transition-colors',
+                'rounded-xl border px-3 py-3 text-center text-sm transition-all',
+                'flex flex-col items-center gap-2',
                 budget === item.value
-                  ? 'border-primary bg-primary/10 text-primary font-medium'
-                  : 'hover:bg-accent',
+                  ? 'border-primary bg-primary/10 text-primary font-medium shadow-sm'
+                  : 'hover:bg-accent hover:border-border/80',
               )}
               onClick={() => onBudgetChange(item.value)}
             >
-              <span className="block text-lg">{item.icon}</span>
-              <span className="block text-xs mt-0.5">{item.label}</span>
+              <span
+                className={cn(
+                  'flex items-center justify-center h-9 w-9 rounded-full',
+                  budget === item.value
+                    ? 'bg-primary/15 text-primary'
+                    : 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400',
+                )}
+              >
+                {BUDGET_ICONS[item.icon]}
+              </span>
+              <span className="text-xs font-medium">{item.label}</span>
             </button>
           ))}
         </div>

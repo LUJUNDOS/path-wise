@@ -4,7 +4,7 @@
  *      docs/API接口设计规格书_v1.0.0.md §6
  */
 
-import type { TransportType, PriceRange, GeoPoint } from './base.js';
+import type { PriceRange, GeoPoint } from './base.js';
 
 /** 城际交通方案 */
 export interface TransportOption {

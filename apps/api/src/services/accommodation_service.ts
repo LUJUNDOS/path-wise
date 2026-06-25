@@ -82,7 +82,7 @@ export async function searchAccommodation(
  * 生成预约链接
  */
 export async function createBooking(
-  req: AccommodationBookingRequest,
+  _req: AccommodationBookingRequest,
 ): Promise<AccommodationBookingResponse> {
   return {
     bookingUrl: 'https://m.ctrip.com/hotel/booking/12345',

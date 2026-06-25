@@ -6,15 +6,20 @@
   "scripts": {
     "dev": "pnpm --filter web dev & pnpm --filter api dev",
     "build": "pnpm --filter web build && pnpm --filter api build",
-    "test": "pnpm --filter shared test && pnpm --filter api test",
-    "lint": "eslint . --ext .ts,.tsx",
-    "format": "prettier --write ."
+    "test": "pnpm --filter api test && pnpm --filter web test",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "prepare": "husky"
   },
   "devDependencies": {
+    "@eslint/js": "^9.0.0",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",
     "eslint": "^9.0.0",
-    "prettier": "^3.4.0"
+    "husky": "^9.1.7",
+    "lint-staged": "^17.0.8",
+    "prettier": "^3.4.0",
+    "typescript-eslint": "^8.0.0"
   },
   "engines": {
     "node": ">=22.0.0",

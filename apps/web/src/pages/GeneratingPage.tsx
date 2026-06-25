@@ -1,10 +1,12 @@
 import { useEffect, useCallback, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, AlertTriangle, Loader2, CheckCircle2, Clock } from 'lucide-react';
+import { ArrowLeft, AlertTriangle, Loader2, CheckCircle2, Clock, Compass } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { DayPlanCard } from '@/components/itinerary/DayPlanCard';
+import { ThemeToggle } from '@/components/common/ThemeToggle';
 import { useSSE } from '@/hooks/useSSE';
 import { useGenerationStore } from '@/stores/generationStore';
 import { useTripFormStore } from '@/stores/tripFormStore';
@@ -27,7 +29,6 @@ const FUN_MESSAGES = [
   '正在匹配合适的餐厅...',
 ];
 
-/** 将表单 store 数据序列化为 TripGenerateRequest POST body */
 function buildRequestBody(formStore: ReturnType<typeof useTripFormStore.getState>) {
   return {
     departure: {
@@ -42,7 +43,7 @@ function buildRequestBody(formStore: ReturnType<typeof useTripFormStore.getState
     destinations: formStore.destinations.map((d) => ({
       cityName: d.cityName,
       days: d.days,
-      transportTo: null,
+      transportTo: d.transportTo ?? null,
     })),
     preferences: {
       budget: formStore.preferences.budget,
@@ -51,6 +52,8 @@ function buildRequestBody(formStore: ReturnType<typeof useTripFormStore.getState
       interests: formStore.preferences.interests,
       dining: formStore.preferences.dining,
     },
+    needsReturnTransport: formStore.needsReturnTransport,
+    returnTransportPref: formStore.returnTransportPref ?? 'auto',
   };
 }
 
@@ -58,21 +61,20 @@ export default function GeneratingPage() {
   const navigate = useNavigate();
   const { connect, disconnect } = useSSE();
   const store = useGenerationStore();
-  const formStore = useTripFormStore();
+  useTripFormStore(); // 订阅 store 变化以保持 handleStart 中的 getState() 最新
   const tipsIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [tipIndex, setTipIndex] = useState(0);
   const [funIndex, setFunIndex] = useState(0);
 
   const handleStart = useCallback(() => {
-    const baseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api/v1';
+    const baseUrl = import.meta.env.VITE_API_BASE_URL ?? '/api/v1';
     const sseUrl = `${baseUrl}/trips/generate`;
     const body = buildRequestBody(useTripFormStore.getState());
 
     connect(sseUrl, { body });
   }, [connect]);
 
-  // Start SSE on mount
   useEffect(() => {
     store.resetGeneration();
     handleStart();
@@ -81,10 +83,8 @@ export default function GeneratingPage() {
       disconnect();
       if (tipsIntervalRef.current) clearInterval(tipsIntervalRef.current);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Redirect on completion
   useEffect(() => {
     if (store.status === 'all_complete' && store.tripId) {
       const timer = setTimeout(() => {
@@ -94,7 +94,6 @@ export default function GeneratingPage() {
     }
   }, [store.status, store.tripId, navigate]);
 
-  // Cycle tips/fun messages every 15 seconds
   useEffect(() => {
     if (store.status !== 'streaming') return;
     tipsIntervalRef.current = setInterval(() => {
@@ -123,66 +122,93 @@ export default function GeneratingPage() {
   const isError = store.status === 'error' || store.status === 'timeout';
   const isComplete = store.status === 'all_complete';
 
+  const pendingCount = Math.max(0, store.totalSteps - store.completedDays.length);
+
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-30 border-b bg-background/80 backdrop-blur-sm">
-        <div className="container mx-auto flex h-14 items-center px-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              disconnect();
-              navigate('/');
-            }}
-            disabled={isStreaming}
-          >
-            <ArrowLeft className="h-4 w-4 mr-1" />
-            返回
-          </Button>
-          <span className="ml-4 font-bold text-lg">PATH-WISE</span>
+      {/* ── Header ── */}
+      <header className="sticky top-0 z-30 border-b border-border/40 bg-background/80 backdrop-blur-lg">
+        <div className="container mx-auto flex h-14 items-center justify-between px-4">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                disconnect();
+                navigate('/');
+              }}
+              disabled={isStreaming}
+            >
+              <ArrowLeft className="h-4 w-4 mr-1" />
+              返回
+            </Button>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center justify-center h-7 w-7 rounded-lg bg-hero shadow-sm">
+                <Compass className="h-3.5 w-3.5 text-white" />
+              </div>
+              <span className="editorial-title text-base">PATH–WISE</span>
+            </div>
+          </div>
+          <ThemeToggle />
         </div>
       </header>
 
-      <main className="container mx-auto max-w-2xl px-4 py-8 space-y-6">
-        {/* Status Header */}
-        <div className="text-center space-y-2">
+      <main className="container mx-auto max-w-2xl px-4 py-8 space-y-8">
+        {/* ── Status Header ── */}
+        <div className="text-center space-y-3">
           {store.status === 'connecting' && (
             <>
-              <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
-              <h2 className="text-lg font-semibold">正在连接...</h2>
+              <div className="relative inline-flex items-center justify-center">
+                <div
+                  className="absolute inset-0 rounded-full bg-primary/10 animate-ping"
+                  style={{ animationDuration: '2s' }}
+                />
+                <Loader2 className="relative h-10 w-10 animate-spin text-primary" />
+              </div>
+              <h2 className="text-xl font-semibold tracking-tight">正在连接...</h2>
             </>
           )}
           {isStreaming && (
             <>
-              <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
-              <h2 className="text-lg font-semibold">正在为你生成专属攻略...</h2>
-              <p className="text-sm text-muted-foreground">{currentFun}</p>
+              <div className="relative inline-flex items-center justify-center">
+                <div
+                  className="absolute inset-0 rounded-full bg-primary/10 animate-ping"
+                  style={{ animationDuration: '2s' }}
+                />
+                <Loader2 className="relative h-10 w-10 animate-spin text-primary" />
+              </div>
+              <h2 className="text-xl font-semibold tracking-tight">正在为你生成专属攻略...</h2>
+              <p className="text-sm text-muted-foreground animate-pulse-soft">{currentFun}</p>
             </>
           )}
           {isComplete && (
-            <>
-              <CheckCircle2 className="h-8 w-8 mx-auto text-green-500" />
-              <h2 className="text-lg font-semibold text-green-600">生成完成！</h2>
-              <p className="text-sm text-muted-foreground">即将跳转到行程结果页...</p>
-            </>
+            <div className="bg-success-soft rounded-2xl px-6 py-6 border border-green-100 dark:border-green-900/30">
+              <CheckCircle2 className="h-10 w-10 mx-auto text-green-500 mb-2" />
+              <h2 className="text-xl font-semibold text-green-700 dark:text-green-400 tracking-tight">
+                生成完成！
+              </h2>
+              <p className="text-sm text-muted-foreground mt-1">即将跳转到行程结果页...</p>
+            </div>
           )}
           {isError && (
-            <>
-              <AlertTriangle className="h-8 w-8 mx-auto text-destructive" />
-              <h2 className="text-lg font-semibold text-destructive">生成失败</h2>
-              <p className="text-sm text-muted-foreground">{store.errorMessage ?? '未知错误'}</p>
-            </>
+            <div className="rounded-2xl border border-destructive/20 bg-destructive/5 px-6 py-6">
+              <AlertTriangle className="h-10 w-10 mx-auto text-destructive mb-2" />
+              <h2 className="text-xl font-semibold text-destructive tracking-tight">生成失败</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                {store.errorMessage ?? '未知错误'}
+              </p>
+            </div>
           )}
         </div>
 
-        {/* Progress */}
+        {/* ── Progress ── */}
         {isStreaming && (
-          <div className="space-y-3">
+          <div className="space-y-4 rounded-xl border border-border/40 bg-card p-5 shadow-sm">
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">
                 Step {store.currentStep} / {store.totalSteps}
               </span>
-              <span className="font-medium">{store.progressPercent}%</span>
+              <span className="font-semibold tabular-nums">{store.progressPercent}%</span>
             </div>
             <Progress value={store.progressPercent} className="h-2" />
             <p className="text-sm font-medium">{store.message}</p>
@@ -190,41 +216,44 @@ export default function GeneratingPage() {
               <p className="text-xs text-muted-foreground">{store.subMessage}</p>
             )}
             {store.estimatedRemainingSeconds > 0 && (
-              <p className="text-xs text-muted-foreground flex items-center gap-1">
-                <Clock className="h-3 w-3" />
+              <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                <Clock className="h-3.5 w-3.5" />
                 预计还需 {store.estimatedRemainingSeconds} 秒
               </p>
             )}
-            <p className="text-xs text-muted-foreground italic">{currentTip}</p>
+            <p className="text-xs text-muted-foreground italic border-t border-border/40 pt-3 mt-1">
+              {currentTip}
+            </p>
           </div>
         )}
 
-        {/* Warnings */}
+        {/* ── Warnings ── */}
         {store.warnings.length > 0 && (
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             {store.warnings.map((w, i) => (
               <div
                 key={i}
-                className="flex items-center gap-2 rounded-md bg-yellow-50 px-3 py-2 text-xs text-yellow-700"
+                className="flex items-center gap-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/30 px-4 py-2.5 text-xs text-amber-700 dark:text-amber-300"
               >
-                <AlertTriangle className="h-3 w-3 shrink-0" />
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
                 {w.message}
               </div>
             ))}
           </div>
         )}
 
-        {/* Day Cards (progressive rendering) */}
+        {/* ── Day Cards ── */}
         {store.totalSteps > 0 && (
           <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-muted-foreground">已生成</h3>
+            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+              已生成
+            </h3>
 
-            {/* Completed days */}
             {store.completedDays
               .sort((a, b) => a.dayIndex - b.dayIndex)
               .map((day) => (
-                <div key={day.dayIndex} className="relative">
-                  <Badge className="absolute -top-2 right-2 z-10 bg-green-500 text-white text-xs">
+                <div key={day.dayIndex} className="relative animate-fade-up">
+                  <Badge className="absolute -top-2.5 right-3 z-10 bg-green-500 hover:bg-green-500 text-white text-xs rounded-full px-3 py-0.5 shadow-sm">
                     <CheckCircle2 className="h-3 w-3 mr-1 inline" />
                     已完成
                   </Badge>
@@ -232,39 +261,55 @@ export default function GeneratingPage() {
                 </div>
               ))}
 
-            {/* Upcoming days placeholder */}
-            {Array.from({
-              length: Math.max(0, store.totalSteps - store.completedDays.length),
-            }).map((_, i) => {
+            {/* Skeleton placeholders for pending days */}
+            {Array.from({ length: pendingCount }).map((_, i) => {
               const dayIndex = store.completedDays.length + i + 1;
               return (
                 <div
                   key={`pending-${dayIndex}`}
-                  className="rounded-lg border border-dashed bg-muted/30 px-6 py-8 text-center"
+                  className="rounded-xl border border-dashed border-border/60 bg-card/40 px-6 py-6"
                 >
-                  <p className="text-sm text-muted-foreground">Day {dayIndex} · 等待生成...</p>
+                  <div className="flex items-center gap-3 mb-4">
+                    <Skeleton className="h-5 w-20 rounded-md" />
+                    <Skeleton className="h-4 w-32 rounded-md" />
+                  </div>
+                  <div className="space-y-3">
+                    <Skeleton className="h-12 w-full rounded-lg" />
+                    <Skeleton className="h-12 w-full rounded-lg" />
+                    <Skeleton className="h-12 w-3/4 rounded-lg" />
+                  </div>
                 </div>
               );
             })}
           </div>
         )}
 
-        {/* Error state */}
+        {/* ── Error Actions ── */}
         {isError && (
           <div className="flex flex-col items-center gap-3">
             {store.partialTripId && (
-              <Button variant="outline" onClick={() => navigate(`/trip/${store.partialTripId}`)}>
+              <Button
+                variant="outline"
+                onClick={() => navigate(`/trip/${store.partialTripId}`)}
+                className="rounded-xl"
+              >
                 查看已生成部分
               </Button>
             )}
-            <Button onClick={handleRetry}>重新生成</Button>
+            <Button onClick={handleRetry} className="rounded-xl shadow-lg shadow-primary/20">
+              重新生成
+            </Button>
           </div>
         )}
 
-        {/* Cancel button */}
+        {/* ── Cancel ── */}
         {isStreaming && (
           <div className="sticky bottom-4 flex justify-center">
-            <Button variant="outline" className="shadow-lg" onClick={handleCancel}>
+            <Button
+              variant="outline"
+              className="shadow-lg rounded-full px-8"
+              onClick={handleCancel}
+            >
               取消生成
             </Button>
           </div>
