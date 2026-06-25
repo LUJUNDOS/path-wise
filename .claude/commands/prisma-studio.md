@@ -34,13 +34,17 @@
 ## 故障排除
 
 **端口 5555 被占用**：
+
 ```bash
 netstat -ano | findstr :5555
 ```
+
 查看占用进程并停止
 
 **数据库连接失败**：
+
 ```bash
 docker ps | grep pathwise-postgres
 ```
+
 确认 PostgreSQL 容器正在运行

@@ -17,8 +17,11 @@ const path = require('path');
 
   for (const { name, path: route } of routes) {
     try {
-      await page.goto(`http://localhost:5173${route}`, { waitUntil: 'networkidle', timeout: 15000 });
-      await new Promise(r => setTimeout(r, 800));
+      await page.goto(`http://localhost:5173${route}`, {
+        waitUntil: 'networkidle',
+        timeout: 15000,
+      });
+      await new Promise((r) => setTimeout(r, 800));
       await page.screenshot({ path: `screenshots/${name}.png`, fullPage: true });
       console.log(`screenshot: screenshots/${name}.png`);
     } catch (err) {

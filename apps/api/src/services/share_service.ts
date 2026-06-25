@@ -12,7 +12,7 @@ import type {
   SuggestionActionRequest,
   SuggestionActionResponse,
   ShareCard,
-} from "@path-wise/shared";
+} from '@path-wise/shared';
 
 /**
  * 生成分享 Token
@@ -23,9 +23,7 @@ export async function generateShareToken(
   maxUsers = 20,
 ): Promise<ShareLink> {
   const shareToken = Math.random().toString(36).substring(2, 12);
-  const expireAt = new Date(
-    Date.now() + expireDays * 86400000,
-  ).toISOString();
+  const expireAt = new Date(Date.now() + expireDays * 86400000).toISOString();
   return {
     shareToken,
     shareUrl: `https://tripplanner.com/share/${shareToken}`,
@@ -37,10 +35,7 @@ export async function generateShareToken(
 /**
  * 验证分享 Token
  */
-export async function verifyShareToken(
-  _tripId: string,
-  _shareToken: string,
-): Promise<boolean> {
+export async function verifyShareToken(_tripId: string, _shareToken: string): Promise<boolean> {
   // MVP stub: always valid
   return true;
 }
@@ -55,7 +50,7 @@ export async function submitSuggestion(
 ): Promise<{ suggestionId: string; status: string; createdAt: string }> {
   return {
     suggestionId: `sug_${Date.now().toString(36)}`,
-    status: "pending",
+    status: 'pending',
     createdAt: new Date().toISOString(),
   };
 }
@@ -80,8 +75,8 @@ export async function handleSuggestion(
 ): Promise<SuggestionActionResponse> {
   return {
     suggestionId,
-    status: _req.action === "accept" ? "accepted" : "rejected",
-    regenerateRequired: _req.action === "accept",
+    status: _req.action === 'accept' ? 'accepted' : 'rejected',
+    regenerateRequired: _req.action === 'accept',
     affectedDayIndex: 0,
   };
 }
@@ -91,8 +86,8 @@ export async function handleSuggestion(
  */
 export async function getShareCard(shareId: string): Promise<ShareCard> {
   return {
-    title: "PATH-WISE · 旅行攻略",
-    description: "已生成专属攻略，点击查看详情",
+    title: 'PATH-WISE · 旅行攻略',
+    description: '已生成专属攻略，点击查看详情',
     imageUrl: `https://cdn.example.com/share/cover/${shareId}.png`,
     url: `https://tripplanner.com/share/${shareId}`,
   };

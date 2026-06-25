@@ -122,7 +122,7 @@ async function seed() {
   console.log('─'.repeat(60));
   for (const c of allCities) {
     console.log(
-      `  ${c.nameZh.padEnd(6)} | ${c.province.padEnd(6)} | ${c.kbStatus.padEnd(12)} | 枢纽:${c.isHubCity ? '✓' : '✗'} | ${c.typicalDays}天`
+      `  ${c.nameZh.padEnd(6)} | ${c.province.padEnd(6)} | ${c.kbStatus.padEnd(12)} | 枢纽:${c.isHubCity ? '✓' : '✗'} | ${c.typicalDays}天`,
     );
   }
   console.log();

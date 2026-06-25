@@ -45,21 +45,21 @@ subagent 具备这些特点：
 
 ## subagents 的核心价值
 
-| 价值 | 说明 |
-|------|------|
-| 上下文隔离 | 避免主对话被复杂细节污染 |
-| 专业分工 | 不同 agent 做不同任务 |
-| 工具隔离 | 可以限制某个 agent 能做什么 |
-| 可复用 | 适合团队共享常用角色 |
+| 价值       | 说明                        |
+| ---------- | --------------------------- |
+| 上下文隔离 | 避免主对话被复杂细节污染    |
+| 专业分工   | 不同 agent 做不同任务       |
+| 工具隔离   | 可以限制某个 agent 能做什么 |
+| 可复用     | 适合团队共享常用角色        |
 
 ---
 
 ## 文件放哪里
 
-| 类型 | 路径 | 作用域 |
-|------|------|--------|
-| 项目级 | `.claude/agents/` | 当前项目 |
-| 用户级 | `~/.claude/agents/` | 所有项目 |
+| 类型        | 路径                     | 作用域         |
+| ----------- | ------------------------ | -------------- |
+| 项目级      | `.claude/agents/`        | 当前项目       |
+| 用户级      | `~/.claude/agents/`      | 所有项目       |
 | plugin 自带 | plugin 的 `agents/` 目录 | 随 plugin 启用 |
 
 ---
@@ -119,16 +119,16 @@ model: inherit
 
 ## 本目录里的示例 subagents
 
-| 名称 | 文件 | 用途 |
-|------|------|------|
-| `code-reviewer` | `code-reviewer.md` | 代码审查 |
-| `clean-code-reviewer` | `clean-code-reviewer.md` | Clean Code 角度审查 |
-| `test-engineer` | `test-engineer.md` | 测试覆盖与测试策略 |
-| `documentation-writer` | `documentation-writer.md` | 文档生成 |
-| `secure-reviewer` | `secure-reviewer.md` | 安全检查 |
-| `implementation-agent` | `implementation-agent.md` | 功能实现 |
-| `debugger` | `debugger.md` | 错误调试与根因定位 |
-| `data-scientist` | `data-scientist.md` | 数据分析与 SQL 任务 |
+| 名称                    | 文件                       | 用途                          |
+| ----------------------- | -------------------------- | ----------------------------- |
+| `code-reviewer`         | `code-reviewer.md`         | 代码审查                      |
+| `clean-code-reviewer`   | `clean-code-reviewer.md`   | Clean Code 角度审查           |
+| `test-engineer`         | `test-engineer.md`         | 测试覆盖与测试策略            |
+| `documentation-writer`  | `documentation-writer.md`  | 文档生成                      |
+| `secure-reviewer`       | `secure-reviewer.md`       | 安全检查                      |
+| `implementation-agent`  | `implementation-agent.md`  | 功能实现                      |
+| `debugger`              | `debugger.md`              | 错误调试与根因定位            |
+| `data-scientist`        | `data-scientist.md`        | 数据分析与 SQL 任务           |
 | `performance-optimizer` | `performance-optimizer.md` | Profiling、性能瓶颈定位与优化 |
 
 ---

@@ -1,11 +1,5 @@
 import { cn } from '@/lib/utils';
-import {
-  Train,
-  Plane,
-  Bus,
-  Car,
-  AlertTriangle,
-} from 'lucide-react';
+import { Train, Plane, Bus, Car, AlertTriangle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { formatCurrency } from '@/lib/format';

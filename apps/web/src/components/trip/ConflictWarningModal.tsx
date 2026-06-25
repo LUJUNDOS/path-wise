@@ -53,9 +53,7 @@ export function ConflictWarningModal({
             <AlertTriangle className="h-5 w-5 text-yellow-500" />
             检测到以下可能需要注意的地方
           </DialogTitle>
-          <DialogDescription>
-            以下冲突仅为提示，您可以坚持原有选择继续生成
-          </DialogDescription>
+          <DialogDescription>以下冲突仅为提示，您可以坚持原有选择继续生成</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3 max-h-[300px] overflow-y-auto">

@@ -4,8 +4,8 @@
  * 依据：docs/API接口设计规格书_v1.0.0.md §7.8
  */
 
-import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { getCoverImageUrl } from "../services/share_service.js";
+import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { getCoverImageUrl } from '../services/share_service.js';
 
 export async function shareCoverRoutes(fastify: FastifyInstance): Promise<void> {
   /**
@@ -13,11 +13,8 @@ export async function shareCoverRoutes(fastify: FastifyInstance): Promise<void> 
    * MVP: 返回 302 重定向到 placeholder 图片
    */
   fastify.get(
-    "/share/cover/:tripId",
-    async (
-      request: FastifyRequest<{ Params: { tripId: string } }>,
-      reply: FastifyReply,
-    ) => {
+    '/share/cover/:tripId',
+    async (request: FastifyRequest<{ Params: { tripId: string } }>, reply: FastifyReply) => {
       const { tripId } = request.params;
       const imageUrl = getCoverImageUrl(tripId);
       // MVP: 重定向到 placeholder

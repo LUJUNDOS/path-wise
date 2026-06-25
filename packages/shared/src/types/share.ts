@@ -5,14 +5,14 @@
 
 /** 修改建议类型 */
 export type SuggestionType =
-  | "add_poi"
-  | "remove_poi"
-  | "change_hotel"
-  | "change_transport"
-  | "note";
+  | 'add_poi'
+  | 'remove_poi'
+  | 'change_hotel'
+  | 'change_transport'
+  | 'note';
 
 /** 修改建议状态 */
-export type SuggestionStatus = "pending" | "accepted" | "rejected";
+export type SuggestionStatus = 'pending' | 'accepted' | 'rejected';
 
 /** 修改建议 */
 export interface Suggestion {
@@ -44,7 +44,7 @@ export interface SuggestionSubmitRequest {
 
 /** 处理修改建议请求 */
 export interface SuggestionActionRequest {
-  action: "accept" | "reject";
+  action: 'accept' | 'reject';
   note?: string;
 }
 

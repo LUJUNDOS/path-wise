@@ -6,13 +6,13 @@
 
 ## 文件命名
 
-| 位置 | 命名方式 | 示例 |
-|------|----------|------|
-| 组件（`components/`） | `PascalCase` | `TripPlanner.tsx`、`CityCard.tsx` |
-| 页面（`pages/`） | `PascalCase` | `HomePage.tsx`、`TripDetailPage.tsx` |
-| Hooks（`hooks/`） | `camelCase` | `useTripGeneration.ts`、`useSSE.ts` |
-| 工具（`lib/`） | `camelCase` | `formatDate.ts`、`apiClient.ts` |
-| 类型（`types/`） | `PascalCase` | `TripPlan.ts` |
+| 位置                  | 命名方式     | 示例                                 |
+| --------------------- | ------------ | ------------------------------------ |
+| 组件（`components/`） | `PascalCase` | `TripPlanner.tsx`、`CityCard.tsx`    |
+| 页面（`pages/`）      | `PascalCase` | `HomePage.tsx`、`TripDetailPage.tsx` |
+| Hooks（`hooks/`）     | `camelCase`  | `useTripGeneration.ts`、`useSSE.ts`  |
+| 工具（`lib/`）        | `camelCase`  | `formatDate.ts`、`apiClient.ts`      |
+| 类型（`types/`）      | `PascalCase` | `TripPlan.ts`                        |
 
 ## 架构分层
 
@@ -35,13 +35,13 @@ lib/            → 纯工具函数
 ```typescript
 // 1. 标准库
 // 2. 第三方包
-import { create } from "zustand";
-import { useQuery } from "@tanstack/react-query";
+import { create } from 'zustand';
+import { useQuery } from '@tanstack/react-query';
 // 3. 共享类型
-import type { TripRequest, DayPlan } from "@path-wise/shared";
+import type { TripRequest, DayPlan } from '@path-wise/shared';
 // 4. 本地模块
-import { Button } from "@/components/ui/button";
-import { apiClient } from "@/lib/apiClient";
+import { Button } from '@/components/ui/button';
+import { apiClient } from '@/lib/apiClient';
 ```
 
 ## 常用命令
@@ -53,11 +53,11 @@ npx pnpm dlx shadcn@latest add <component-name>    # 添加 shadcn/ui 组件
 
 ## 关键依赖
 
-| 包 | 用途 |
-|------|------|
-| `react` 18.3+ / `react-dom` | UI 框架 |
-| `react-router-dom` 6.28+ | 路由 |
-| `@tanstack/react-query` 5+ | 数据缓存 |
-| `zustand` 4.5+ | 全局状态 |
+| 包                               | 用途      |
+| -------------------------------- | --------- |
+| `react` 18.3+ / `react-dom`      | UI 框架   |
+| `react-router-dom` 6.28+         | 路由      |
+| `@tanstack/react-query` 5+       | 数据缓存  |
+| `zustand` 4.5+                   | 全局状态  |
 | `shadcn/ui` + `tailwindcss` 3.4+ | UI 组件库 |
-| `lucide-react` | 图标 |
+| `lucide-react`                   | 图标      |

@@ -130,9 +130,7 @@ export function PreferencesPanel({
               onClick={() => onAccommodationChange(item.value)}
             >
               <span className="block font-medium">{item.label}</span>
-              <span className="block text-xs text-muted-foreground mt-0.5">
-                {item.description}
-              </span>
+              <span className="block text-xs text-muted-foreground mt-0.5">{item.description}</span>
             </button>
           ))}
         </div>

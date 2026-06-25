@@ -3,7 +3,7 @@
  * 依据：docs/API接口设计规格书_v1.0.0.md §8（原 §7）
  */
 
-import type { GeoPoint, TransportType } from "./base.js";
+import type { GeoPoint, TransportType } from './base.js';
 
 /** 大交通搜索请求 */
 export interface TransportSearchRequest {
@@ -11,7 +11,7 @@ export interface TransportSearchRequest {
   toCity: string;
   date: string; // YYYY-MM-DD
   prefer?: TransportType[];
-  departTimePeriod?: "morning" | "afternoon" | "evening";
+  departTimePeriod?: 'morning' | 'afternoon' | 'evening';
   passengers?: {
     adults: number;
     children: number;
@@ -41,7 +41,7 @@ export interface TransportRouteOption {
 /** 大交通搜索响应 */
 export interface TransportSearchResponse {
   options: TransportRouteOption[];
-  source: "mock" | "amap_api" | "12306_api";
+  source: 'mock' | 'amap_api' | '12306_api';
   expiresAt: string;
 }
 
@@ -50,7 +50,7 @@ export interface RoutePlanRequest {
   city: string;
   origin: GeoPoint;
   destination: GeoPoint;
-  mode: "driving" | "transit" | "walking" | "cycling";
+  mode: 'driving' | 'transit' | 'walking' | 'cycling';
   departureTime?: string; // HH:mm
 }
 

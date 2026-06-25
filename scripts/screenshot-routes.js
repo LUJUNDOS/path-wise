@@ -17,13 +17,22 @@ const { chromium } = require('playwright');
   for (const { name, path } of routes) {
     try {
       await page.goto(`http://localhost:5173${path}`, { waitUntil: 'networkidle', timeout: 15000 });
-      await page.screenshot({ path: `screenshots/${name.replace(/[\/ ]/g, '_')}.png`, fullPage: true });
+      await page.screenshot({
+        path: `screenshots/${name.replace(/[\/ ]/g, '_')}.png`,
+        fullPage: true,
+      });
       const title = await page.title();
       const text = await page.textContent('body');
       const preview = text?.substring(0, 120)?.replace(/\s+/g, ' ') ?? '';
       results.push({ name, path, status: '✅', title, preview });
     } catch (err) {
-      results.push({ name, path, status: `❌ ${err.message.substring(0, 80)}`, title: '-', preview: '-' });
+      results.push({
+        name,
+        path,
+        status: `❌ ${err.message.substring(0, 80)}`,
+        title: '-',
+        preview: '-',
+      });
     }
   }
 

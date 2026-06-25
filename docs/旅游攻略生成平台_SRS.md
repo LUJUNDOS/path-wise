@@ -169,14 +169,14 @@
 
 #### M02：交通查询与规划模块
 
-| 功能 ID | 功能名称           | 优先级 | 说明                                                                 |
-| ------- | ------------------ | ------ | -------------------------------------------------------------------- |
-| M02-F01 | 实时高铁班次查询   | P0     | 调用 12306 API / 第三方聚合，返回符合时间段的班次                    |
-| M02-F02 | 实时航班查询       | P0     | 调用航班数据 API，返回符合时间段的航班                               |
-| M02-F03 | 大交通智能选择     | P0     | 根据出发时间段筛选符合出发时间区间的车次/航班/大巴（含普速火车卧铺） |
-| M02-F04 | 交通枢纽到市区路线 | P1     | 计算从高铁站/机场到酒店的公共交通/打车时间                           |
-| M02-F05 | 离港时间保障计算   | P0     | 自动计算提前到达枢纽时间（高铁1.5h/机场2h）                          |
-| M02-F06 | 中转日大交通感知   | P0     | 中转日活动规划强约束，避开时间冲突和高体力消耗                       |
+| 功能 ID | 功能名称           | 优先级 | 说明                                                                                                  |
+| ------- | ------------------ | ------ | ----------------------------------------------------------------------------------------------------- |
+| M02-F01 | 实时高铁班次查询   | P0     | 调用 12306 API / 第三方聚合，返回符合时间段的班次                                                     |
+| M02-F02 | 实时航班查询       | P0     | 调用航班数据 API，返回符合时间段的航班                                                                |
+| M02-F03 | 大交通智能选择     | P0     | 根据出发时间段筛选符合出发时间区间的车次/航班/大巴（含普速火车卧铺）                                  |
+| M02-F04 | 交通枢纽到市区路线 | P1     | 计算从高铁站/机场到酒店的公共交通/打车时间                                                            |
+| M02-F05 | 离港时间保障计算   | P0     | 自动计算提前到达枢纽时间（高铁1.5h/机场2h）                                                           |
+| M02-F06 | 中转日大交通感知   | P0     | 中转日活动规划强约束，避开时间冲突和高体力消耗                                                        |
 | M02-F07 | 返程交通选择       | P0     | 用户可勾选「预定返程」，系统根据末站城市→出发地自动推荐返程大交通方案；不勾选则最后一日不展示返程信息 |
 
 #### M03：城市攻略生成模块（AI Agent）
@@ -555,31 +555,31 @@ interface TripRequest {
   departure: {
     city: string; // 出发城市
     date: string; // ISO 格式日期
-    timePeriod: "morning" | "afternoon" | "evening"; // 出发时间段
+    timePeriod: 'morning' | 'afternoon' | 'evening'; // 出发时间段
   };
   destinations: DestinationConfig[];
   travelers: TravelerConfig;
   preferences: TravelPreferences;
   needsReturnTransport: boolean; // 是否预定返程大交通
-  returnTransportPref?: "high_speed_rail" | "normal_train" | "flight" | "bus" | "auto"; // 返程交通偏好（不填则智能推荐）
+  returnTransportPref?: 'high_speed_rail' | 'normal_train' | 'flight' | 'bus' | 'auto'; // 返程交通偏好（不填则智能推荐）
 }
 
 interface DestinationConfig {
   cityName: string;
   days: number;
-  transportTo: "high_speed_rail" | "normal_train" | "flight" | "bus" | "auto";
+  transportTo: 'high_speed_rail' | 'normal_train' | 'flight' | 'bus' | 'auto';
 }
 
 interface TravelerConfig {
   adults: number;
   children: Array<{ age: number }>;
-  elders: Array<{ mobilityLevel: "full" | "limited" }>;
+  elders: Array<{ mobilityLevel: 'full' | 'limited' }>;
 }
 
 interface TravelPreferences {
-  budget: "economy" | "comfort" | "luxury";
-  pace: "intensive" | "moderate" | "relaxed";
-  accommodation: "hostel" | "chain_hotel" | "boutique" | "any";
+  budget: 'economy' | 'comfort' | 'luxury';
+  pace: 'intensive' | 'moderate' | 'relaxed';
+  accommodation: 'hostel' | 'chain_hotel' | 'boutique' | 'any';
   dining: string[]; // ["local_food", "michelin", "vegetarian", ...]
   interests: string[]; // ["culture", "photography", "shopping", ...]
   totalBudgetCNY?: number; // 可选：总预算（人民币）
@@ -601,11 +601,7 @@ interface TripLifecycle {
 interface DayPlan {
   dayIndex: number; // Day 1, Day 2 ...
   date: string;
-  dayType:
-    | "transit_departure"
-    | "city_exploration"
-    | "transit_transfer"
-    | "transit_return";
+  dayType: 'transit_departure' | 'city_exploration' | 'transit_transfer' | 'transit_return';
   cityName: string;
   title: string; // e.g. "始发与移动日（北京 ➔ 长沙）"
   transport?: TransportInfo; // 当日大交通信息
@@ -615,7 +611,7 @@ interface DayPlan {
 
 interface TimelineItem {
   time: string; // e.g. "09:00"
-  type: "transport" | "attraction" | "dining" | "hotel" | "shopping" | "rest";
+  type: 'transport' | 'attraction' | 'dining' | 'hotel' | 'shopping' | 'rest';
   title: string;
   description: string;
   location?: GeoPoint;

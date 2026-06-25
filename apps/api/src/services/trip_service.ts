@@ -15,7 +15,7 @@ import type {
   ExportResponse,
   TripRegenerateRequest,
   DayPlan,
-} from "@path-wise/shared";
+} from '@path-wise/shared';
 
 /** Mock 天计划生成参数 */
 export interface MockDayParams {
@@ -28,35 +28,29 @@ export interface MockDayParams {
 /**
  * 攻略请求校验 + 冲突检测
  */
-export function validateTripRequest(
-  req: TripGenerateRequest,
-): TripValidationResponse {
-  const conflicts: TripValidationResponse["conflicts"] = [];
+export function validateTripRequest(req: TripGenerateRequest): TripValidationResponse {
+  const conflicts: TripValidationResponse['conflicts'] = [];
 
   // budget + accommodation 冲突
   if (
-    req.preferences.budget === "economy" &&
-    (req.preferences.accommodation === "boutique" ||
-      req.preferences.accommodation === "luxury")
+    req.preferences.budget === 'economy' &&
+    (req.preferences.accommodation === 'boutique' || req.preferences.accommodation === 'luxury')
   ) {
     conflicts.push({
-      type: "budget_accommodation",
-      severity: "warning",
-      message: "穷游预算下选择精品酒店可能超预算，建议调整为经济型或连锁酒店",
-      suggestion: { action: "set_accommodation", value: "chain_hotel" },
+      type: 'budget_accommodation',
+      severity: 'warning',
+      message: '穷游预算下选择精品酒店可能超预算，建议调整为经济型或连锁酒店',
+      suggestion: { action: 'set_accommodation', value: 'chain_hotel' },
     });
   }
 
   // pace + elders 冲突
-  if (
-    req.travelers.elders > 0 &&
-    req.preferences.pace === "intensive"
-  ) {
+  if (req.travelers.elders > 0 && req.preferences.pace === 'intensive') {
     conflicts.push({
-      type: "pace_elders",
-      severity: "warning",
-      message: "同行有老人，高强度节奏可能较辛苦，建议调整为适中节奏",
-      suggestion: { action: "set_pace", value: "moderate" },
+      type: 'pace_elders',
+      severity: 'warning',
+      message: '同行有老人，高强度节奏可能较辛苦，建议调整为适中节奏',
+      suggestion: { action: 'set_pace', value: 'moderate' },
     });
   }
 
@@ -74,9 +68,7 @@ export async function listTrips(_userId: string): Promise<TripSummary[]> {
 /**
  * 查询完整攻略
  */
-export async function getTrip(
-  tripId: string,
-): Promise<TripResponse | null> {
+export async function getTrip(tripId: string): Promise<TripResponse | null> {
   // MVP stub
   return null;
 }
@@ -84,10 +76,7 @@ export async function getTrip(
 /**
  * 查询单天行程
  */
-export async function getDayPlan(
-  _tripId: string,
-  _dayIndex: number,
-): Promise<unknown | null> {
+export async function getDayPlan(_tripId: string, _dayIndex: number): Promise<unknown | null> {
   // MVP stub
   return null;
 }
@@ -122,9 +111,9 @@ export async function exportTrip(
   _options: ExportOptions,
 ): Promise<ExportResponse> {
   return {
-    exportId: "export_mock",
-    status: "ready",
-    downloadUrl: "https://cdn.example.com/exports/trip_mock.pdf",
+    exportId: 'export_mock',
+    status: 'ready',
+    downloadUrl: 'https://cdn.example.com/exports/trip_mock.pdf',
     expiresAt: new Date(Date.now() + 3600000).toISOString(),
     format: _options.format,
     sizeBytes: 2048000,
@@ -154,10 +143,10 @@ export function generateMockDay(
   cityName: string,
   isFirstDayOfCity: boolean,
   daysInCity: number,
-  _prefs?: TripGenerateRequest["preferences"],
+  _prefs?: TripGenerateRequest['preferences'],
 ): DayPlan {
-  const dayType = isFirstDayOfCity ? "transit_departure" : "city_exploration";
-  const dateStr = `2026-07-${String(dayIndex).padStart(2, "0")}`;
+  const dayType = isFirstDayOfCity ? 'transit_departure' : 'city_exploration';
+  const dateStr = `2026-07-${String(dayIndex).padStart(2, '0')}`;
 
   return {
     dayIndex,
@@ -169,48 +158,48 @@ export function generateMockDay(
     timeline: [
       {
         id: `item_${dayIndex}_001`,
-        type: "attraction",
+        type: 'attraction',
         title: `${cityName}热门景点`,
-        startTime: "09:00",
-        endTime: "12:00",
+        startTime: '09:00',
+        endTime: '12:00',
         estimatedDuration: 180,
         estimatedCostCNY: 0,
-        energyLevel: "MEDIUM",
+        energyLevel: 'MEDIUM',
         bookingRequired: false,
       },
       {
         id: `item_${dayIndex}_002`,
-        type: "dining",
-        title: "当地特色餐厅",
-        startTime: "12:30",
-        endTime: "13:30",
+        type: 'dining',
+        title: '当地特色餐厅',
+        startTime: '12:30',
+        endTime: '13:30',
         estimatedDuration: 60,
         estimatedCostCNY: 50,
-        energyLevel: "LOW",
+        energyLevel: 'LOW',
         bookingRequired: false,
       },
     ],
     accommodation: isFirstDayOfCity
       ? {
           checkInDate: dateStr,
-          checkOutDate: `2026-07-${String(dayIndex + daysInCity).padStart(2, "0")}`,
+          checkOutDate: `2026-07-${String(dayIndex + daysInCity).padStart(2, '0')}`,
           nights: daysInCity,
           primary: {
             name: `${cityName}市中心舒适酒店`,
             address: `${cityName}市中心`,
             pricePerNight: 450,
             totalPrice: 450 * daysInCity,
-            reason: "交通便利，评分高",
+            reason: '交通便利，评分高',
           },
           backup: {
             name: `${cityName}经济连锁酒店`,
             address: `${cityName}火车站附近`,
             pricePerNight: 280,
             totalPrice: 280 * daysInCity,
-            reason: "性价比高",
+            reason: '性价比高',
           },
         }
       : null,
-    tips: ["建议提前查看天气预报", "高峰期景点需排队"],
+    tips: ['建议提前查看天气预报', '高峰期景点需排队'],
   };
 }

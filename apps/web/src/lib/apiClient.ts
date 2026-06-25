@@ -1,7 +1,7 @@
-import axios, { type AxiosInstance, type AxiosError } from "axios";
-import type { ApiResponse, ErrorResponse } from "@path-wise/shared";
+import axios, { type AxiosInstance, type AxiosError } from 'axios';
+import type { ApiResponse, ErrorResponse } from '@path-wise/shared';
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000/api/v1";
+const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api/v1';
 
 /**
  * 增强的错误类型，保留 HTTP 元数据和业务错误码
@@ -30,7 +30,7 @@ export class ApiError extends Error {
     },
   ) {
     super(message);
-    this.name = "ApiError";
+    this.name = 'ApiError';
     this.businessCode = options.businessCode;
     this.httpStatus = options.httpStatus;
     this.url = options.url;
@@ -47,7 +47,7 @@ class ApiClient {
       baseURL: BASE_URL,
       timeout: 15000,
       headers: {
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
       },
     });
 
@@ -60,18 +60,18 @@ class ApiClient {
           throw new ApiError(message, {
             businessCode: data?.code ?? status,
             httpStatus: status,
-            url: config?.url ?? "",
-            method: config?.method?.toUpperCase() ?? "GET",
+            url: config?.url ?? '',
+            method: config?.method?.toUpperCase() ?? 'GET',
             response: data,
           });
         }
 
         // 网络层错误（无 response）
-        throw new ApiError("网络连接失败，请检查网络", {
+        throw new ApiError('网络连接失败，请检查网络', {
           businessCode: 0,
           httpStatus: 0,
-          url: error.config?.url ?? "",
-          method: error.config?.method?.toUpperCase() ?? "GET",
+          url: error.config?.url ?? '',
+          method: error.config?.method?.toUpperCase() ?? 'GET',
         });
       },
     );

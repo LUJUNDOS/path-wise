@@ -11,12 +11,8 @@
  * 依据：docs/API接口设计规格书_v1.0.0.md §4.1, §6
  */
 
-import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import type {
-  TripGenerateRequest,
-  DayUpdateRequest,
-  ExportOptions,
-} from "@path-wise/shared";
+import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import type { TripGenerateRequest, DayUpdateRequest, ExportOptions } from '@path-wise/shared';
 import {
   validateTripRequest,
   getTrip,
@@ -24,14 +20,14 @@ import {
   updateDayPlan,
   deleteTrip,
   exportTrip,
-} from "../services/trip_service.js";
-import { successResponse, errorResponse } from "../utils/response.js";
+} from '../services/trip_service.js';
+import { successResponse, errorResponse } from '../utils/response.js';
 
 export async function tripCrudRoutes(fastify: FastifyInstance): Promise<void> {
   /**
    * POST /trips/validate — 用户输入校验与冲突检测
    */
-  fastify.post("/trips/validate", async (request: FastifyRequest, reply: FastifyReply) => {
+  fastify.post('/trips/validate', async (request: FastifyRequest, reply: FastifyReply) => {
     const body = request.body as TripGenerateRequest;
     const result = validateTripRequest(body);
     return reply.send(successResponse(result));
@@ -41,7 +37,7 @@ export async function tripCrudRoutes(fastify: FastifyInstance): Promise<void> {
    * GET /trips/:tripId — 查询完整攻略
    */
   fastify.get(
-    "/trips/:tripId",
+    '/trips/:tripId',
     async (
       request: FastifyRequest<{
         Params: { tripId: string };
@@ -54,21 +50,21 @@ export async function tripCrudRoutes(fastify: FastifyInstance): Promise<void> {
 
       // 分享链接查看
       if (shareToken) {
-        return reply.send(successResponse({
-          tripId,
-          title: "示例攻略 · 北京 → 长沙 5 天游",
-          days: [],
-          isReadOnly: true,
-          sharedBy: "旅行者",
-          expireAt: new Date(Date.now() + 30 * 86400000).toISOString(),
-        }));
+        return reply.send(
+          successResponse({
+            tripId,
+            title: '示例攻略 · 北京 → 长沙 5 天游',
+            days: [],
+            isReadOnly: true,
+            sharedBy: '旅行者',
+            expireAt: new Date(Date.now() + 30 * 86400000).toISOString(),
+          }),
+        );
       }
 
       const trip = await getTrip(tripId);
       if (!trip) {
-        return reply.status(404).send(
-          errorResponse(20005, "攻略不存在"),
-        );
+        return reply.status(404).send(errorResponse(20005, '攻略不存在'));
       }
 
       return reply.send(successResponse(trip));
@@ -79,7 +75,7 @@ export async function tripCrudRoutes(fastify: FastifyInstance): Promise<void> {
    * GET /trips/:tripId/day/:dayIndex — 查询单天行程
    */
   fastify.get(
-    "/trips/:tripId/day/:dayIndex",
+    '/trips/:tripId/day/:dayIndex',
     async (
       request: FastifyRequest<{ Params: { tripId: string; dayIndex: string } }>,
       reply: FastifyReply,
@@ -88,9 +84,7 @@ export async function tripCrudRoutes(fastify: FastifyInstance): Promise<void> {
       const day = await getDayPlan(tripId, parseInt(dayIndex, 10));
 
       if (!day) {
-        return reply.status(404).send(
-          errorResponse(20005, "该天行程不存在"),
-        );
+        return reply.status(404).send(errorResponse(20005, '该天行程不存在'));
       }
 
       return reply.send(successResponse(day));
@@ -101,7 +95,7 @@ export async function tripCrudRoutes(fastify: FastifyInstance): Promise<void> {
    * PUT /trips/:tripId/day/:dayIndex — 修改单天行程
    */
   fastify.put(
-    "/trips/:tripId/day/:dayIndex",
+    '/trips/:tripId/day/:dayIndex',
     async (
       request: FastifyRequest<{
         Params: { tripId: string; dayIndex: string };
@@ -111,7 +105,7 @@ export async function tripCrudRoutes(fastify: FastifyInstance): Promise<void> {
     ) => {
       const { tripId, dayIndex } = request.params;
       const result = await updateDayPlan(tripId, parseInt(dayIndex, 10), request.body);
-      return reply.send(successResponse(result, { message: "行程已更新" }));
+      return reply.send(successResponse(result, { message: '行程已更新' }));
     },
   );
 
@@ -119,14 +113,11 @@ export async function tripCrudRoutes(fastify: FastifyInstance): Promise<void> {
    * DELETE /trips/:tripId — 删除攻略
    */
   fastify.delete(
-    "/trips/:tripId",
-    async (
-      request: FastifyRequest<{ Params: { tripId: string } }>,
-      reply: FastifyReply,
-    ) => {
+    '/trips/:tripId',
+    async (request: FastifyRequest<{ Params: { tripId: string } }>, reply: FastifyReply) => {
       const { tripId } = request.params;
       const result = await deleteTrip(tripId);
-      return reply.send(successResponse(result, { message: "攻略已删除" }));
+      return reply.send(successResponse(result, { message: '攻略已删除' }));
     },
   );
 
@@ -134,7 +125,7 @@ export async function tripCrudRoutes(fastify: FastifyInstance): Promise<void> {
    * GET /trips/:tripId/export — 导出攻略
    */
   fastify.get(
-    "/trips/:tripId/export",
+    '/trips/:tripId/export',
     async (
       request: FastifyRequest<{
         Params: { tripId: string };
@@ -144,7 +135,7 @@ export async function tripCrudRoutes(fastify: FastifyInstance): Promise<void> {
     ) => {
       const { tripId } = request.params;
       const options: ExportOptions = {
-        format: (request.query.format as ExportOptions["format"]) ?? "pdf",
+        format: (request.query.format as ExportOptions['format']) ?? 'pdf',
         size: request.query.size,
       };
       const result = await exportTrip(tripId, options);

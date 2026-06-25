@@ -11,44 +11,44 @@ import type {
   AccommodationSearchOption,
   AccommodationBookingRequest,
   AccommodationBookingResponse,
-} from "@path-wise/shared";
+} from '@path-wise/shared';
 
 /** Mock 住宿方案 */
 const MOCK_HOTELS: Record<string, AccommodationSearchOption[]> = {
-  "长沙": [
+  长沙: [
     {
-      name: "长沙IFS国金中心亚朵酒店",
-      address: "长沙市芙蓉区解放西路188号",
+      name: '长沙IFS国金中心亚朵酒店',
+      address: '长沙市芙蓉区解放西路188号',
       location: { lat: 28.195, lng: 112.977 },
-      roomType: "标准双床房",
+      roomType: '标准双床房',
       pricePerNight: 480,
       totalPrice: 1440,
-      amenities: ["wifi", "elevator", "breakfast", "laundry"],
+      amenities: ['wifi', 'elevator', 'breakfast', 'laundry'],
       distanceToCenter: 0,
       distanceToAttractions: {
-        岳麓山: "15 分钟车程",
-        橘子洲头: "10 分钟车程",
+        岳麓山: '15 分钟车程',
+        橘子洲头: '10 分钟车程',
       },
-      bookingUrl: "https://m.ctrip.com/hotel/changsha/12345",
-      deepLink: { platform: "ctrip", url: "ctrip://hotel/12345" },
-      availability: "available",
-      reason: "位于市中心，前往各景点交通便利，含早餐",
+      bookingUrl: 'https://m.ctrip.com/hotel/changsha/12345',
+      deepLink: { platform: 'ctrip', url: 'ctrip://hotel/12345' },
+      availability: 'available',
+      reason: '位于市中心，前往各景点交通便利，含早餐',
     },
     {
-      name: "岳麓山精品民宿",
-      address: "长沙市岳麓区爱民路88号",
+      name: '岳麓山精品民宿',
+      address: '长沙市岳麓区爱民路88号',
       location: { lat: 28.18, lng: 112.93 },
-      roomType: "大床房",
+      roomType: '大床房',
       pricePerNight: 320,
       totalPrice: 960,
-      amenities: ["wifi", "garden", "breakfast"],
+      amenities: ['wifi', 'garden', 'breakfast'],
       distanceToCenter: 5,
       distanceToAttractions: {
-        岳麓山: "步行 5 分钟",
-        橘子洲头: "20 分钟车程",
+        岳麓山: '步行 5 分钟',
+        橘子洲头: '20 分钟车程',
       },
-      availability: "few_left",
-      reason: "紧邻岳麓山，环境清幽，适合喜欢自然的旅客",
+      availability: 'few_left',
+      reason: '紧邻岳麓山，环境清幽，适合喜欢自然的旅客',
     },
   ],
 };
@@ -74,7 +74,7 @@ export async function searchAccommodation(
     cityName: req.cityName,
     checkInDate: req.checkInDate,
     options: filtered.length > 0 ? filtered : options,
-    bookingTip: "建议提前 3~5 天预订，暑期房源紧张",
+    bookingTip: '建议提前 3~5 天预订，暑期房源紧张',
   };
 }
 
@@ -85,8 +85,8 @@ export async function createBooking(
   req: AccommodationBookingRequest,
 ): Promise<AccommodationBookingResponse> {
   return {
-    bookingUrl: "https://m.ctrip.com/hotel/booking/12345",
-    deepLink: { platform: "ctrip", url: "ctrip://hotel/booking/12345" },
+    bookingUrl: 'https://m.ctrip.com/hotel/booking/12345',
+    deepLink: { platform: 'ctrip', url: 'ctrip://hotel/booking/12345' },
     confirmationCode: `BK${Date.now().toString(36).toUpperCase()}`,
     expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
   };

@@ -22,17 +22,23 @@ describe('validateHomeForm', () => {
 
     it('出发城市为空时应返回错误', () => {
       const errors = validateHomeForm({ ...validData, departureCity: '' });
-      expect(errors.some((e) => e.field === 'departureCity' && e.message.includes('出发城市'))).toBe(true);
+      expect(
+        errors.some((e) => e.field === 'departureCity' && e.message.includes('出发城市')),
+      ).toBe(true);
     });
 
     it('目的地为空时应返回错误', () => {
       const errors = validateHomeForm({ ...validData, destinations: [] });
-      expect(errors.some((e) => e.field === 'destinations' && e.message.includes('目的地'))).toBe(true);
+      expect(errors.some((e) => e.field === 'destinations' && e.message.includes('目的地'))).toBe(
+        true,
+      );
     });
 
     it('出发日期为空时应返回错误', () => {
       const errors = validateHomeForm({ ...validData, departureDate: '' });
-      expect(errors.some((e) => e.field === 'departureDate' && e.message.includes('出发日期'))).toBe(true);
+      expect(
+        errors.some((e) => e.field === 'departureDate' && e.message.includes('出发日期')),
+      ).toBe(true);
     });
 
     it('成人数为0时应返回错误', () => {
@@ -45,7 +51,9 @@ describe('validateHomeForm', () => {
     it('出发日期为过去日期时应返回错误', () => {
       const pastDate = '2020-01-01';
       const errors = validateHomeForm({ ...validData, departureDate: pastDate });
-      expect(errors.some((e) => e.field === 'departureDate' && e.message.includes('过去的日期'))).toBe(true);
+      expect(
+        errors.some((e) => e.field === 'departureDate' && e.message.includes('过去的日期')),
+      ).toBe(true);
     });
 
     it('出发日期为当天时应通过', () => {
@@ -76,7 +84,9 @@ describe('validateHomeForm', () => {
     it('单个目的地停留天数超过14天时应返回错误', () => {
       const longDest = [{ cityName: '长沙', days: 15, transportTo: null as null }];
       const errors = validateHomeForm({ ...validData, destinations: longDest });
-      expect(errors.some((e) => e.field === 'destinations[0].days' && e.message.includes('14'))).toBe(true);
+      expect(
+        errors.some((e) => e.field === 'destinations[0].days' && e.message.includes('14')),
+      ).toBe(true);
     });
 
     it('目的地城市名称为空时应返回错误', () => {

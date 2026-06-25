@@ -16,8 +16,8 @@
  *   return reply.status(404).send(errorResponse(error.code, error.message));
  */
 
-import { randomUUID } from "node:crypto";
-import type { ResponseMeta } from "@path-wise/shared";
+import { randomUUID } from 'node:crypto';
+import type { ResponseMeta } from '@path-wise/shared';
 
 // ---- 成功响应 ----
 
@@ -55,7 +55,7 @@ export function successResponse<T>(
 ): SuccessResponsePayload<T> {
   return {
     code: 0,
-    message: options.message ?? "ok",
+    message: options.message ?? 'ok',
     data,
     meta: { ...defaultMeta(), ...options.meta },
   };

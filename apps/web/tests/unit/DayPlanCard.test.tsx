@@ -5,7 +5,9 @@
  */
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { DayPlanCard, TransportInfoCard, AccommodationCard } from '@/components/itinerary/DayPlanCard';
+import { DayPlanCard } from '@/components/itinerary/DayPlanCard';
+import { TransportInfoCard } from '@/components/itinerary/TransportInfoCard';
+import { AccommodationCard } from '@/components/itinerary/AccommodationCard';
 import type { DayPlan } from '@path-wise/shared';
 
 describe('DayPlanCard', () => {
@@ -53,7 +55,7 @@ describe('DayPlanCard', () => {
       departTime: '16:45',
       arriveTime: '19:00',
       durationMinutes: 135,
-      pricePerPerson: { '二等座': 314, '一等座': 498 },
+      pricePerPerson: { 二等座: 314, 一等座: 498 },
     },
     weather: null,
     tips: ['岳麓山建议穿舒适鞋子', '湖南省博物馆周一闭馆'],
@@ -190,7 +192,7 @@ describe('TransportInfoCard', () => {
       departTime: '16:45',
       arriveTime: '19:00',
       durationMinutes: 135,
-      pricePerPerson: { '二等座': 314 },
+      pricePerPerson: { 二等座: 314 },
     };
     render(<TransportInfoCard transport={transport} />);
     expect(screen.getByText(/G6113/)).toBeTruthy();

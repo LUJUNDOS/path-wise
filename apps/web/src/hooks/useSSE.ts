@@ -1,7 +1,7 @@
-import { useCallback, useRef } from "react";
-import { useGenerationStore } from "@/stores/generationStore";
-import { SSE_TIMEOUT_MS, SSE_CONNECT_TIMEOUT_MS } from "@/lib/constants";
-import type { DayPlan } from "@path-wise/shared";
+import { useCallback, useRef } from 'react';
+import { useGenerationStore } from '@/stores/generationStore';
+import { SSE_TIMEOUT_MS, SSE_CONNECT_TIMEOUT_MS } from '@/lib/constants';
+import type { DayPlan } from '@path-wise/shared';
 
 interface SSEDayReadyData {
   dayIndex: number;
@@ -62,44 +62,39 @@ export function useSSE() {
    * 参考：https://html.spec.whatwg.org/multipage/server-sent-events.html
    */
   const parseSSEChunk = useCallback(
-    (
-      buffer: string,
-      handlers: Record<string, (data: string) => void>,
-    ): string => {
-      const lines = buffer.split("\n");
+    (buffer: string, handlers: Record<string, (data: string) => void>): string => {
+      const lines = buffer.split('\n');
       // 保留最后一个不完整的行
-      let remainder = "";
-      if (!buffer.endsWith("\n")) {
+      let remainder = '';
+      if (!buffer.endsWith('\n')) {
         const last = lines.pop();
         if (last !== undefined) remainder = last;
       }
 
-      let currentEvent = "";
-      let currentData = "";
+      let currentEvent = '';
+      let currentData = '';
 
       for (const line of lines) {
-        if (line === "") {
+        if (line === '') {
           // 空行 = 事件结束，分发
           if (currentData && handlers[currentEvent]) {
             try {
               // 移除末尾换行符
-              const dataStr = currentData.endsWith("\n")
-                ? currentData.slice(0, -1)
-                : currentData;
+              const dataStr = currentData.endsWith('\n') ? currentData.slice(0, -1) : currentData;
               handlers[currentEvent](dataStr);
             } catch {
               // JSON 解析失败静默跳过（由具体 handler 处理）
             }
           }
-          currentEvent = "";
-          currentData = "";
+          currentEvent = '';
+          currentData = '';
           continue;
         }
 
-        if (line.startsWith("event: ")) {
+        if (line.startsWith('event: ')) {
           currentEvent = line.slice(7);
-        } else if (line.startsWith("data: ")) {
-          currentData += (currentData ? "\n" : "") + line.slice(6);
+        } else if (line.startsWith('data: ')) {
+          currentData += (currentData ? '\n' : '') + line.slice(6);
         }
         // 忽略注释行（以 : 开头）
       }
@@ -112,8 +107,8 @@ export function useSSE() {
   const connect = useCallback(
     (url: string, options: SSEConnectOptions) => {
       const store = useGenerationStore.getState();
-      if (store.status !== "idle" && store.status !== "error") {
-        useGenerationStore.setState({ status: "connecting" });
+      if (store.status !== 'idle' && store.status !== 'error') {
+        useGenerationStore.setState({ status: 'connecting' });
       }
 
       const controller = new AbortController();
@@ -122,12 +117,12 @@ export function useSSE() {
       // 连接超时
       connectTimerRef.current = setTimeout(() => {
         controller.abort();
-        setError("连接超时，请重试");
+        setError('连接超时，请重试');
       }, SSE_CONNECT_TIMEOUT_MS);
 
       fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(options.body),
         signal: controller.signal,
       })
@@ -136,15 +131,14 @@ export function useSSE() {
             clearTimers();
             const errorBody = await response.json().catch(() => null);
             setError(
-              (errorBody as { message?: string })?.message ??
-                `请求失败 (HTTP ${response.status})`,
+              (errorBody as { message?: string })?.message ?? `请求失败 (HTTP ${response.status})`,
             );
             return;
           }
 
           if (!response.body) {
             clearTimers();
-            setError("浏览器不支持流式响应");
+            setError('浏览器不支持流式响应');
             return;
           }
 
@@ -152,7 +146,7 @@ export function useSSE() {
 
           const reader = response.body.getReader();
           const decoder = new TextDecoder();
-          let buffer = "";
+          let buffer = '';
 
           const handlers: Record<string, (data: string) => void> = {
             connected: (dataStr) => {
@@ -180,12 +174,7 @@ export function useSSE() {
             done: (dataStr) => {
               clearTimers();
               const data = JSON.parse(dataStr);
-              setDone(
-                data.tripId,
-                data.totalEstimatedCostCNY,
-                data.summary,
-                data.shareUrl,
-              );
+              setDone(data.tripId, data.totalEstimatedCostCNY, data.summary, data.shareUrl);
               reader.cancel();
             },
             error_event: (dataStr) => {
@@ -218,35 +207,31 @@ export function useSSE() {
             const final = decoder.decode();
             if (final) {
               buffer += final;
-              parseSSEChunk(buffer + "\n", handlers);
+              parseSSEChunk(buffer + '\n', handlers);
             }
 
             // Stream 正常结束但未收到 done 事件 → 服务端提前关闭
             const currentState = useGenerationStore.getState();
-            if (currentState.status === "streaming") {
+            if (currentState.status === 'streaming') {
               clearTimers();
-              setError("服务端连接提前关闭，可查看已生成部分",
-                currentState.taskId ?? undefined);
+              setError('服务端连接提前关闭，可查看已生成部分', currentState.taskId ?? undefined);
             }
           } catch (err) {
-            if ((err as Error).name === "AbortError") {
+            if ((err as Error).name === 'AbortError') {
               // 主动取消，不报错
               return;
             }
             clearTimers();
             const currentState = useGenerationStore.getState();
-            setError(
-              `SSE 连接中断 (HTTP ${response.status})`,
-              currentState.taskId ?? undefined,
-            );
+            setError(`SSE 连接中断 (HTTP ${response.status})`, currentState.taskId ?? undefined);
           }
         })
         .catch((err) => {
-          if ((err as Error).name === "AbortError") {
+          if ((err as Error).name === 'AbortError') {
             return; // 主动取消
           }
           clearTimers();
-          setError("网络连接失败，请检查网络后重试");
+          setError('网络连接失败，请检查网络后重试');
         });
     },
     [

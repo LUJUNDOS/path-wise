@@ -8,8 +8,8 @@
  *   stream.end();
  */
 
-import type { FastifyReply } from "fastify";
-import type { SSEEventType } from "@path-wise/shared";
+import type { FastifyReply } from 'fastify';
+import type { SSEEventType } from '@path-wise/shared';
 
 /** SSE 流控制器 */
 export interface SSEStream {
@@ -21,10 +21,10 @@ export interface SSEStream {
 
 /** SSE 响应头集合 */
 const SSE_HEADERS = {
-  "Content-Type": "text/event-stream",
-  "Cache-Control": "no-cache",
-  Connection: "keep-alive",
-  "X-Accel-Buffering": "no",
+  'Content-Type': 'text/event-stream',
+  'Cache-Control': 'no-cache',
+  Connection: 'keep-alive',
+  'X-Accel-Buffering': 'no',
 } as const;
 
 /**

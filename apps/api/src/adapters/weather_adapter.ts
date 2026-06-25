@@ -21,10 +21,10 @@ export async function getWeather(
 }> {
   return {
     cityName,
-    date: date ?? new Date().toISOString().split("T")[0],
-    forecast: "晴转多云",
+    date: date ?? new Date().toISOString().split('T')[0],
+    forecast: '晴转多云',
     temperature: { low: 24, high: 33 },
     humidity: 65,
-    wind: "东南风 3级",
+    wind: '东南风 3级',
   };
 }

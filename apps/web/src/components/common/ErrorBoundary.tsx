@@ -29,9 +29,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
         <div className="flex flex-col items-center justify-center gap-4 py-12">
           <AlertTriangle className="h-12 w-12 text-destructive" />
           <h2 className="text-lg font-semibold">页面出现错误</h2>
-          <p className="text-sm text-muted-foreground">
-            {this.state.error?.message ?? '未知错误'}
-          </p>
+          <p className="text-sm text-muted-foreground">{this.state.error?.message ?? '未知错误'}</p>
           <Button variant="outline" onClick={() => this.setState({ hasError: false, error: null })}>
             重试
           </Button>

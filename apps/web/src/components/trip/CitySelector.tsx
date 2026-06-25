@@ -38,9 +38,7 @@ export function CitySelector({
   const filteredCities = useMemo(() => {
     if (!search.trim()) return [];
     const q = search.toLowerCase();
-    return availableCities.filter(
-      (c) => c.toLowerCase().includes(q) || c === search,
-    );
+    return availableCities.filter((c) => c.toLowerCase().includes(q) || c === search);
   }, [search, availableCities]);
 
   const handleSelect = useCallback(
@@ -179,9 +177,7 @@ export function CitySelector({
             )}
 
             {search.trim() && filteredCities.length === 0 && (
-              <p className="py-4 text-center text-sm text-muted-foreground">
-                未找到匹配的城市
-              </p>
+              <p className="py-4 text-center text-sm text-muted-foreground">未找到匹配的城市</p>
             )}
           </div>
         </div>

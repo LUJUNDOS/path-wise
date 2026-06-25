@@ -31,40 +31,40 @@ Claude Code 里的 slash commands 大致分四类：
 
 ## 先知道这几个高频命令
 
-| 命令 | 用途 |
-|------|------|
-| `/help` | 查看帮助和命令列表 |
-| `/clear` | 清空当前会话 |
-| `/config` | 查看或编辑设置 |
-| `/context` | 看上下文使用情况 |
-| `/model` | 切换模型；`v2.1.153+` 起默认保存为后续 session 默认值，选择后按 `s` 才只作用于当前 session |
-| `/effort [low|medium|high|xhigh|max|auto]` | 用交互滑杆调整思考强度；Opus 4.8 默认是 `high`，`xhigh` 适用于 Opus 4.8 / 4.7 |
-| `/agents` | 查看可用 agents |
-| `/skills` | 查看可用 skills |
-| `/hooks` | 查看 hooks |
-| `/mcp` | 管理 MCP |
-| `/plugin` | 管理 plugins |
-| `/plan` | 进入 planning mode |
-| `/focus` | 切换 focus view，减少长任务时的视觉干扰 |
-| `/goal <目标>` | 给当前 session 注册一个持续追踪的完成目标 |
-| `/less-permission-prompts` | 分析常见 Bash / MCP 调用，帮你生成更合理的 allowlist |
-| `/code-review [effort]` | 审查当前 diff 的正确性缺陷；可传入 `/code-review high` 这类 effort 参数 |
-| `/proactive` | `/loop` 的别名 |
-| `/recap` | 回来继续 session 时，快速看一眼刚刚做了什么 |
-| `/sandbox` | 切换 sandbox 模式 |
-| `/powerup` | 用交互式 lesson 了解内建能力 |
-| `/rewind` | 回退到 checkpoint |
-| `/undo` | `/rewind` 的别名 |
-| `/resume` | 恢复以前的 session |
-| `/reload-skills` | 重新扫描 skill 目录，不需要重启当前 session |
-| `/workflows` | 查看正在运行和已完成的 dynamic workflows |
-| `/scroll-speed <+N|-N>` | 调整 TUI live preview 的鼠标滚轮滚动速度 |
-| `/team-onboarding` | 生成一份适合新同事的 Claude Code 上手说明 |
-| `/tui` | 切换全屏 TUI（Text User Interface）模式 |
-| `/ultraplan` | 先产出详细计划，再在浏览器中审阅 |
-| `/ultrareview` | 用云端多代理做一轮更重的综合代码审查 |
-| `/usage` | 查看 plan 用量、限流状态和成本；`v2.1.149+` 起成本视图会按类别拆分 |
-| `/usage-credits` | 配置额外用量额度；`/extra-usage` 仍可作为 alias（别名）使用 |
+| 命令                       | 用途                                                                                       |
+| -------------------------- | ------------------------------------------------------------------------------------------ | ---------------------------------------- | ----- | --- | ------ | ----------------------------------------------------------------------------- |
+| `/help`                    | 查看帮助和命令列表                                                                         |
+| `/clear`                   | 清空当前会话                                                                               |
+| `/config`                  | 查看或编辑设置                                                                             |
+| `/context`                 | 看上下文使用情况                                                                           |
+| `/model`                   | 切换模型；`v2.1.153+` 起默认保存为后续 session 默认值，选择后按 `s` 才只作用于当前 session |
+| `/effort [low              | medium                                                                                     | high                                     | xhigh | max | auto]` | 用交互滑杆调整思考强度；Opus 4.8 默认是 `high`，`xhigh` 适用于 Opus 4.8 / 4.7 |
+| `/agents`                  | 查看可用 agents                                                                            |
+| `/skills`                  | 查看可用 skills                                                                            |
+| `/hooks`                   | 查看 hooks                                                                                 |
+| `/mcp`                     | 管理 MCP                                                                                   |
+| `/plugin`                  | 管理 plugins                                                                               |
+| `/plan`                    | 进入 planning mode                                                                         |
+| `/focus`                   | 切换 focus view，减少长任务时的视觉干扰                                                    |
+| `/goal <目标>`             | 给当前 session 注册一个持续追踪的完成目标                                                  |
+| `/less-permission-prompts` | 分析常见 Bash / MCP 调用，帮你生成更合理的 allowlist                                       |
+| `/code-review [effort]`    | 审查当前 diff 的正确性缺陷；可传入 `/code-review high` 这类 effort 参数                    |
+| `/proactive`               | `/loop` 的别名                                                                             |
+| `/recap`                   | 回来继续 session 时，快速看一眼刚刚做了什么                                                |
+| `/sandbox`                 | 切换 sandbox 模式                                                                          |
+| `/powerup`                 | 用交互式 lesson 了解内建能力                                                               |
+| `/rewind`                  | 回退到 checkpoint                                                                          |
+| `/undo`                    | `/rewind` 的别名                                                                           |
+| `/resume`                  | 恢复以前的 session                                                                         |
+| `/reload-skills`           | 重新扫描 skill 目录，不需要重启当前 session                                                |
+| `/workflows`               | 查看正在运行和已完成的 dynamic workflows                                                   |
+| `/scroll-speed <+N         | -N>`                                                                                       | 调整 TUI live preview 的鼠标滚轮滚动速度 |
+| `/team-onboarding`         | 生成一份适合新同事的 Claude Code 上手说明                                                  |
+| `/tui`                     | 切换全屏 TUI（Text User Interface）模式                                                    |
+| `/ultraplan`               | 先产出详细计划，再在浏览器中审阅                                                           |
+| `/ultrareview`             | 用云端多代理做一轮更重的综合代码审查                                                       |
+| `/usage`                   | 查看 plan 用量、限流状态和成本；`v2.1.149+` 起成本视图会按类别拆分                         |
+| `/usage-credits`           | 配置额外用量额度；`/extra-usage` 仍可作为 alias（别名）使用                                |
 
 这些命令不用安装，开箱即用。
 
@@ -74,16 +74,16 @@ Claude Code 里的 slash commands 大致分四类：
 
 ## 本目录里的示例命令
 
-| 文件 | 触发方式 | 用途 |
-|------|----------|------|
-| `optimize.md` | `/optimize` | 分析性能与优化机会 |
-| `pr.md` | `/pr` | 提交 PR 前的整理与检查 |
-| `generate-api-docs.md` | `/generate-api-docs` | 生成 API 文档 |
-| `commit.md` | `/commit` | 生成提交说明 |
-| `push-all.md` | `/push-all` | stage + commit + push |
-| `doc-refactor.md` | `/doc-refactor` | 文档重构 |
-| `setup-ci-cd.md` | `/setup-ci-cd` | CI/CD 初始化 |
-| `unit-test-expand.md` | `/unit-test-expand` | 扩充测试覆盖 |
+| 文件                   | 触发方式             | 用途                   |
+| ---------------------- | -------------------- | ---------------------- |
+| `optimize.md`          | `/optimize`          | 分析性能与优化机会     |
+| `pr.md`                | `/pr`                | 提交 PR 前的整理与检查 |
+| `generate-api-docs.md` | `/generate-api-docs` | 生成 API 文档          |
+| `commit.md`            | `/commit`            | 生成提交说明           |
+| `push-all.md`          | `/push-all`          | stage + commit + push  |
+| `doc-refactor.md`      | `/doc-refactor`      | 文档重构               |
+| `setup-ci-cd.md`       | `/setup-ci-cd`       | CI/CD 初始化           |
+| `unit-test-expand.md`  | `/unit-test-expand`  | 扩充测试覆盖           |
 
 ---
 

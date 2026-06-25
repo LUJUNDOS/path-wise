@@ -71,9 +71,7 @@ export function DestinationInput({
               >
                 -
               </button>
-              <span className="min-w-[3ch] text-center text-xs font-medium">
-                {dest.days}天
-              </span>
+              <span className="min-w-[3ch] text-center text-xs font-medium">{dest.days}天</span>
               <button
                 className="flex h-5 w-5 items-center justify-center rounded text-xs hover:bg-accent"
                 onClick={() => handleDaysChange(index, 1)}
@@ -111,9 +109,7 @@ export function DestinationInput({
       </div>
 
       {destinations.length >= 2 && (
-        <p className="text-xs text-muted-foreground">
-          共 {totalDays} 天
-        </p>
+        <p className="text-xs text-muted-foreground">共 {totalDays} 天</p>
       )}
     </div>
   );

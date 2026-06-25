@@ -4,7 +4,7 @@
  *      docs/API接口设计规格书_v1.0.0.md §6
  */
 
-import type { TransportType, PriceRange, GeoPoint } from "./base.js";
+import type { TransportType, PriceRange, GeoPoint } from './base.js';
 
 /** 城际交通方案 */
 export interface TransportOption {
@@ -33,7 +33,7 @@ export interface CityBasic {
 }
 
 /** POI 类型 */
-export type POICategory = "attraction" | "dining" | "shopping" | "hotel";
+export type POICategory = 'attraction' | 'dining' | 'shopping' | 'hotel';
 
 /** POI 条目 */
 export interface POI {

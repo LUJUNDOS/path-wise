@@ -70,7 +70,7 @@ interface SSEConnection {
   tripId?: number;
   createdAt: Date;
   lastEventTime: Date;
-  status: "active" | "completed" | "failed";
+  status: 'active' | 'completed' | 'failed';
 }
 
 class SSEConnectionManager {
@@ -86,14 +86,14 @@ class SSEConnectionManager {
       userId,
       createdAt: new Date(),
       lastEventTime: new Date(),
-      status: "active",
+      status: 'active',
     };
 
     this.connections.set(connectionId, connection);
 
     // 设置超时定时器
     setTimeout(() => {
-      this.closeConnection(connectionId, "timeout");
+      this.closeConnection(connectionId, 'timeout');
     }, this.TIMEOUT_MS);
 
     return connectionId;
@@ -108,13 +108,10 @@ class SSEConnectionManager {
   }
 
   // 关闭连接
-  closeConnection(
-    connectionId: string,
-    reason: "completed" | "failed" | "timeout",
-  ): void {
+  closeConnection(connectionId: string, reason: 'completed' | 'failed' | 'timeout'): void {
     const connection = this.connections.get(connectionId);
     if (connection) {
-      connection.status = reason === "completed" ? "completed" : "failed";
+      connection.status = reason === 'completed' ? 'completed' : 'failed';
       this.connections.delete(connectionId);
 
       console.log(`SSE 连接已关闭: ${connectionId}, 原因: ${reason}`);
@@ -123,9 +120,7 @@ class SSEConnectionManager {
 
   // 获取活跃连接数
   getActiveConnectionCount(): number {
-    return Array.from(this.connections.values()).filter(
-      (c) => c.status === "active",
-    ).length;
+    return Array.from(this.connections.values()).filter((c) => c.status === 'active').length;
   }
 }
 ```
@@ -287,7 +282,7 @@ data: {
 // apps/web/src/lib/sse-client.ts
 
 export interface SSEEvent {
-  type: "progress" | "day_plan" | "complete" | "error";
+  type: 'progress' | 'day_plan' | 'complete' | 'error';
   data: any;
 }
 
@@ -322,9 +317,9 @@ export class SSEClient {
 
     try {
       const response = await fetch(this.url, {
-        method: "POST",
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify(body),
         signal: this.abortController.signal,
@@ -335,14 +330,14 @@ export class SSEClient {
       }
 
       if (!response.body) {
-        throw new Error("Response body is null");
+        throw new Error('Response body is null');
       }
 
       // 读取 SSE 流
       await this.readSSEStream(response.body);
     } catch (error) {
-      if (error instanceof Error && error.name === "AbortError") {
-        console.log("SSE 连接已主动关闭");
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.log('SSE 连接已主动关闭');
         return;
       }
 
@@ -355,7 +350,7 @@ export class SSEClient {
   private async readSSEStream(body: ReadableStream<Uint8Array>): Promise<void> {
     const reader = body.getReader();
     const decoder = new TextDecoder();
-    let buffer = "";
+    let buffer = '';
 
     while (true) {
       const { done, value } = await reader.read();
@@ -366,7 +361,7 @@ export class SSEClient {
 
       // 解析完整的 SSE 事件
       const events = this.parseSSEBuffer(buffer);
-      buffer = ""; // 清空缓冲区
+      buffer = ''; // 清空缓冲区
 
       // 处理事件
       for (const event of events) {
@@ -378,30 +373,30 @@ export class SSEClient {
   // 解析 SSE 缓冲区
   private parseSSEBuffer(buffer: string): SSEEvent[] {
     const events: SSEEvent[] = [];
-    const lines = buffer.split("\n");
+    const lines = buffer.split('\n');
 
-    let currentEvent = "";
-    let currentData = "";
+    let currentEvent = '';
+    let currentData = '';
 
     for (const line of lines) {
-      if (line.startsWith("event:")) {
+      if (line.startsWith('event:')) {
         currentEvent = line.slice(6).trim();
-      } else if (line.startsWith("data:")) {
+      } else if (line.startsWith('data:')) {
         currentData = line.slice(5).trim();
 
         if (currentEvent && currentData) {
           try {
             const event: SSEEvent = {
-              type: currentEvent as SSEEvent["type"],
+              type: currentEvent as SSEEvent['type'],
               data: JSON.parse(currentData),
             };
             events.push(event);
           } catch (error) {
-            console.error("解析 SSE 数据失败:", error);
+            console.error('解析 SSE 数据失败:', error);
           }
 
-          currentEvent = "";
-          currentData = "";
+          currentEvent = '';
+          currentData = '';
         }
       }
     }
@@ -412,24 +407,21 @@ export class SSEClient {
   // 处理事件
   private handleEvent(event: SSEEvent): void {
     switch (event.type) {
-      case "progress":
+      case 'progress':
         this.options.onProgress?.(event.data);
         break;
-      case "day_plan":
+      case 'day_plan':
         this.options.onDayPlan?.(event.data);
         break;
-      case "complete":
+      case 'complete':
         this.options.onComplete?.(event.data);
         this.close(); // 自动关闭连接
         break;
-      case "error":
+      case 'error':
         this.options.onError?.(event.data);
 
         // 如果可重试，触发重试逻辑
-        if (
-          event.data.retryable &&
-          this.retryCount < (this.options.maxRetries || 3)
-        ) {
+        if (event.data.retryable && this.retryCount < (this.options.maxRetries || 3)) {
           this.handleRetry(new Error(event.data.message));
         } else {
           this.close();
@@ -441,10 +433,10 @@ export class SSEClient {
   // 处理重试
   private handleRetry(error: any): void {
     if (this.retryCount >= (this.options.maxRetries || 3)) {
-      console.error("SSE 连接重试次数已用尽");
+      console.error('SSE 连接重试次数已用尽');
       this.options.onError?.({
         code: 500,
-        message: "连接失败，请刷新页面重试",
+        message: '连接失败，请刷新页面重试',
         details: error.message,
         retryable: false,
       });
@@ -661,30 +653,30 @@ private async handleRetryWithBackoff(error: any, attempt: number): Promise<void>
 ```typescript
 // apps/api/src/services/sse.service.test.ts
 
-import { SSEService } from "./sse.service";
+import { SSEService } from './sse.service';
 
-describe("SSEService", () => {
-  it("应正确发送进度事件", async () => {
+describe('SSEService', () => {
+  it('应正确发送进度事件', async () => {
     const mockResponse = createMockResponse();
     const sseService = new SSEService(mockResponse);
 
     sseService.sendProgress({
       progress: 50,
-      currentStep: "正在规划行程...",
+      currentStep: '正在规划行程...',
     });
 
     const output = mockResponse.getOutput();
-    expect(output).toContain("event: progress");
+    expect(output).toContain('event: progress');
     expect(output).toContain('"progress": 50');
   });
 
-  it("应正确关闭连接", async () => {
+  it('应正确关闭连接', async () => {
     const mockResponse = createMockResponse();
     const sseService = new SSEService(mockResponse);
 
     sseService.sendComplete({
       tripId: 123,
-      title: "Test Trip",
+      title: 'Test Trip',
       totalDays: 3,
     });
 
@@ -698,17 +690,17 @@ describe("SSEService", () => {
 ```typescript
 // apps/web/src/lib/sse-client.test.ts
 
-import { SSEClient } from "./sse-client";
+import { SSEClient } from './sse-client';
 
-describe("SSEClient", () => {
-  it("应正确解析 SSE 事件", async () => {
+describe('SSEClient', () => {
+  it('应正确解析 SSE 事件', async () => {
     const mockStream = createMockSSEStream([
-      { type: "progress", data: { progress: 10 } },
-      { type: "day_plan", data: { day: 1, title: "Day 1" } },
-      { type: "complete", data: { tripId: 123 } },
+      { type: 'progress', data: { progress: 10 } },
+      { type: 'day_plan', data: { day: 1, title: 'Day 1' } },
+      { type: 'complete', data: { tripId: 123 } },
     ]);
 
-    const client = new SSEClient("/api/v1/trip/generate", {
+    const client = new SSEClient('/api/v1/trip/generate', {
       onProgress: jest.fn(),
       onDayPlan: jest.fn(),
       onComplete: jest.fn(),
@@ -745,13 +737,7 @@ interface SSELog {
   connectionId: string;
   userId?: number;
   tripId?: number;
-  event:
-    | "connected"
-    | "progress"
-    | "day_plan"
-    | "complete"
-    | "error"
-    | "closed";
+  event: 'connected' | 'progress' | 'day_plan' | 'complete' | 'error' | 'closed';
   data?: any;
   duration?: number; // 连接持续时间（毫秒）
 }

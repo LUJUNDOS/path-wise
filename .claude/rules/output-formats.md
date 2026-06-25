@@ -32,16 +32,17 @@ async function functionName(param: ParamType): Promise<ReturnType> {
 Refs: #<issue号>
 ```
 
-| type | 用途 |
-|------|------|
-| `feat` | 新功能 |
-| `fix` | 修复 Bug |
-| `docs` | 文档变更 |
+| type       | 用途               |
+| ---------- | ------------------ |
+| `feat`     | 新功能             |
+| `fix`      | 修复 Bug           |
+| `docs`     | 文档变更           |
 | `refactor` | 重构（不改变功能） |
-| `test` | 测试相关 |
-| `chore` | 工具链 / 配置变更 |
+| `test`     | 测试相关           |
+| `chore`    | 工具链 / 配置变更  |
 
 示例：
+
 ```
 feat(api): 实现高德地图 POI 搜索适配器
 

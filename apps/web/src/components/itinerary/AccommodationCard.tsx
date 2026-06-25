@@ -21,7 +21,10 @@ export function AccommodationCard({ accommodation, className }: AccommodationCar
               <div className="flex items-start justify-between">
                 <div>
                   <div className="text-sm font-medium">
-                    <Badge variant={tier === 'primary' ? 'default' : 'secondary'} className="mr-1.5 text-xs">
+                    <Badge
+                      variant={tier === 'primary' ? 'default' : 'secondary'}
+                      className="mr-1.5 text-xs"
+                    >
                       {label}
                     </Badge>
                     {hotel.name}
@@ -53,9 +56,7 @@ export function AccommodationCard({ accommodation, className }: AccommodationCar
                 </div>
               )}
 
-              {hotel.reason && (
-                <p className="mt-2 text-xs text-muted-foreground">{hotel.reason}</p>
-              )}
+              {hotel.reason && <p className="mt-2 text-xs text-muted-foreground">{hotel.reason}</p>}
             </CardContent>
           </Card>
         );

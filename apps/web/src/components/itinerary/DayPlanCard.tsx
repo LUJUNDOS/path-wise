@@ -36,7 +36,11 @@ const DAY_TYPE_LABELS: Record<string, string> = {
 
 // ---- DayPlanCard ----
 
-export function DayPlanCard({ dayPlan, isGenerating = false, isCompact = false }: DayPlanCardProps) {
+export function DayPlanCard({
+  dayPlan,
+  isGenerating = false,
+  isCompact = false,
+}: DayPlanCardProps) {
   const dayTypeLabel = DAY_TYPE_LABELS[dayPlan.dayType] ?? dayPlan.dayType;
 
   if (isGenerating) {
@@ -75,9 +79,10 @@ export function DayPlanCard({ dayPlan, isGenerating = false, isCompact = false }
 
       <CardContent className="space-y-3">
         {/* Transport info for departure/transfer days */}
-        {dayPlan.transport && (dayPlan.dayType === 'transit_departure' || dayPlan.dayType === 'transit_transfer') && (
-          <TransportInfoCard transport={dayPlan.transport} />
-        )}
+        {dayPlan.transport &&
+          (dayPlan.dayType === 'transit_departure' || dayPlan.dayType === 'transit_transfer') && (
+            <TransportInfoCard transport={dayPlan.transport} />
+          )}
 
         {/* Accommodation for first day of city */}
         {dayPlan.isFirstDayOfCity && dayPlan.accommodation && (
@@ -97,9 +102,7 @@ export function DayPlanCard({ dayPlan, isGenerating = false, isCompact = false }
             </div>
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground py-4 text-center">
-            当天暂无安排
-          </p>
+          <p className="text-sm text-muted-foreground py-4 text-center">当天暂无安排</p>
         )}
 
         {/* Tips */}

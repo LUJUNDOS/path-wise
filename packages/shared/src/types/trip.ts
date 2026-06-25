@@ -13,7 +13,7 @@ import type {
   TimelineItemType,
   TravelerGroup,
   TransportType,
-} from "./base.js";
+} from './base.js';
 
 // ===== 请求类型 =====
 
@@ -60,7 +60,7 @@ export interface TripGenerateRequest {
 /** 重新生成某天请求 */
 export interface TripRegenerateRequest {
   dayIndex: number;
-  reason?: "user_dislike" | "weather_change" | "preference_update" | "suggestion_accepted";
+  reason?: 'user_dislike' | 'weather_change' | 'preference_update' | 'suggestion_accepted';
   constraints?: {
     avoidPoiIds?: string[];
     mustIncludePoiIds?: string[];
@@ -150,7 +150,7 @@ export interface DayPlan {
 export interface TripResponse {
   tripId: string;
   title: string;
-  generateTime? : string; // ISO 8601
+  generateTime?: string; // ISO 8601
   totalDays: number;
   totalEstimatedCostCNY?: number;
   departureCity: string;
@@ -175,7 +175,7 @@ export interface TripSummary {
 /** 校验冲突 */
 export interface TripConflict {
   type: string;
-  severity: "warning" | "error";
+  severity: 'warning' | 'error';
   message: string;
   suggestion?: {
     action: string;
@@ -192,7 +192,7 @@ export interface TripValidationResponse {
 /** 生成进度 */
 export interface GenerationProgress {
   taskId: string;
-  status: "pending" | "processing" | "completed" | "failed" | "cancelled";
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
   progress: {
     percent: number;
     currentStep: string;
@@ -206,14 +206,14 @@ export interface GenerationProgress {
 
 /** 攻略导出请求参数 */
 export interface ExportOptions {
-  format: "pdf" | "image" | "text";
+  format: 'pdf' | 'image' | 'text';
   size?: string; // 图片尺寸，如 "1080x1920"
 }
 
 /** 攻略导出响应 */
 export interface ExportResponse {
   exportId: string;
-  status: "ready" | "processing";
+  status: 'ready' | 'processing';
   downloadUrl?: string;
   expiresAt?: string;
   format: string;

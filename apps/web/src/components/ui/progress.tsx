@@ -1,4 +1,4 @@
-import { cn } from "@/lib/utils";
+import { cn } from '@/lib/utils';
 
 interface ProgressProps extends React.HTMLAttributes<HTMLDivElement> {
   value: number;
@@ -7,10 +7,7 @@ interface ProgressProps extends React.HTMLAttributes<HTMLDivElement> {
 function Progress({ className, value, ...props }: ProgressProps) {
   return (
     <div
-      className={cn(
-        "relative h-4 w-full overflow-hidden rounded-full bg-secondary",
-        className,
-      )}
+      className={cn('relative h-4 w-full overflow-hidden rounded-full bg-secondary', className)}
       {...props}
     >
       <div

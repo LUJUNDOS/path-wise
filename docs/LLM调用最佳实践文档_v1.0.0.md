@@ -119,15 +119,15 @@ PATH-WISE 当前支持以下 4 个 LLM 模型，均为中国大陆可访问的 A
 // apps/api/src/services/llm-router.service.ts
 
 export type TaskType =
-  | "full_itinerary_generation" // 完整行程生成（多天）
-  | "single_day_generation" // 单日行程生成
-  | "poi_recommendation" // 景点推荐
-  | "text_generation" // 文案生成（景点描述/餐厅推荐文案）
-  | "budget_estimation" // 预算估算
-  | "simple_qa"; // 简单问答
+  | 'full_itinerary_generation' // 完整行程生成（多天）
+  | 'single_day_generation' // 单日行程生成
+  | 'poi_recommendation' // 景点推荐
+  | 'text_generation' // 文案生成（景点描述/餐厅推荐文案）
+  | 'budget_estimation' // 预算估算
+  | 'simple_qa'; // 简单问答
 
-export type CostPriority = "cost_first" | "balanced" | "quality_first";
-export type SpeedPriority = "fast" | "balanced" | "thorough";
+export type CostPriority = 'cost_first' | 'balanced' | 'quality_first';
+export type SpeedPriority = 'fast' | 'balanced' | 'thorough';
 
 export interface RoutingContext {
   taskType: TaskType;
@@ -138,11 +138,7 @@ export interface RoutingContext {
   forceModel?: string; // 强制指定模型（跳过路由）
 }
 
-export type ModelId =
-  | "deepseek-chat"
-  | "glm-4-flash"
-  | "moonshot-v1-8k"
-  | "MiMo-7B-RL";
+export type ModelId = 'deepseek-chat' | 'glm-4-flash' | 'moonshot-v1-8k' | 'MiMo-7B-RL';
 
 export function routeLLM(ctx: RoutingContext): ModelId {
   // 0. 强制指定模型
@@ -150,46 +146,44 @@ export function routeLLM(ctx: RoutingContext): ModelId {
 
   // 1. 超长上下文强制走 Kimi
   if (ctx.estimatedInputTokens > 100_000) {
-    return "moonshot-v1-8k";
+    return 'moonshot-v1-8k';
   }
 
   // 2. 超长行程（10天以上）走 Kimi（避免内容截断）
   if (ctx.estimatedTotalDays && ctx.estimatedTotalDays >= 10) {
-    return "moonshot-v1-8k";
+    return 'moonshot-v1-8k';
   }
 
   // 3. 成本优先
-  if (ctx.costPriority === "cost_first") {
-    return ctx.taskType === "simple_qa" ? "MiMo-7B-RL" : "glm-4-flash";
+  if (ctx.costPriority === 'cost_first') {
+    return ctx.taskType === 'simple_qa' ? 'MiMo-7B-RL' : 'glm-4-flash';
   }
 
   // 4. 质量优先（高预算用户）
-  if (ctx.costPriority === "quality_first") {
-    return ctx.estimatedInputTokens > 50_000
-      ? "moonshot-v1-8k"
-      : "deepseek-chat";
+  if (ctx.costPriority === 'quality_first') {
+    return ctx.estimatedInputTokens > 50_000 ? 'moonshot-v1-8k' : 'deepseek-chat';
   }
 
   // 5. 按任务类型路由
   switch (ctx.taskType) {
-    case "full_itinerary_generation":
-      return "deepseek-chat";
+    case 'full_itinerary_generation':
+      return 'deepseek-chat';
 
-    case "single_day_generation":
-      return ctx.speedPriority === "fast" ? "glm-4-flash" : "deepseek-chat";
+    case 'single_day_generation':
+      return ctx.speedPriority === 'fast' ? 'glm-4-flash' : 'deepseek-chat';
 
-    case "poi_recommendation":
-    case "text_generation":
-      return "glm-4-flash";
+    case 'poi_recommendation':
+    case 'text_generation':
+      return 'glm-4-flash';
 
-    case "budget_estimation":
-      return "deepseek-chat"; // 数学计算准确
+    case 'budget_estimation':
+      return 'deepseek-chat'; // 数学计算准确
 
-    case "simple_qa":
-      return "MiMo-7B-RL";
+    case 'simple_qa':
+      return 'MiMo-7B-RL';
 
     default:
-      return "deepseek-chat"; // 默认 fallback
+      return 'deepseek-chat'; // 默认 fallback
   }
 }
 ```
@@ -203,35 +197,35 @@ export function routeLLM(ctx: RoutingContext): ModelId {
 ```typescript
 // 基础配置
 const DEEPSEEK_CONFIG = {
-  baseURL: "https://api.deepseek.com/v1",
-  model: "deepseek-chat",
+  baseURL: 'https://api.deepseek.com/v1',
+  model: 'deepseek-chat',
   // 行程生成参数（注重结构输出稳定性）
   temperature: 0.7, // 适中创意，输出稳定
   top_p: 0.9,
   max_tokens: 8192, // 单次最大输出（行程生成需要大输出）
   response_format: {
-    type: "json_object", // ✅ 强烈推荐开启：强制输出 JSON，减少解析失败
+    type: 'json_object', // ✅ 强烈推荐开启：强制输出 JSON，减少解析失败
   },
   stream: true, // 启用流式输出（SSE）
 };
 
 // 调用示例
 async function callDeepSeek(prompt: string, systemPrompt: string) {
-  const response = await fetch("https://api.deepseek.com/v1/chat/completions", {
-    method: "POST",
+  const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+    method: 'POST',
     headers: {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
       Authorization: `Bearer ${process.env.DEEPSEEK_API_KEY}`,
     },
     body: JSON.stringify({
-      model: "deepseek-chat",
+      model: 'deepseek-chat',
       messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: prompt },
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: prompt },
       ],
       temperature: 0.7,
       max_tokens: 8192,
-      response_format: { type: "json_object" },
+      response_format: { type: 'json_object' },
       stream: true,
     }),
   });
@@ -254,8 +248,8 @@ async function callDeepSeek(prompt: string, systemPrompt: string) {
 ```typescript
 // 基础配置
 const GLM_CONFIG = {
-  baseURL: "https://open.bigmodel.cn/api/paas/v4",
-  model: "glm-4-flash",
+  baseURL: 'https://open.bigmodel.cn/api/paas/v4',
+  model: 'glm-4-flash',
   // 轻量任务参数（注重速度）
   temperature: 0.8, // 稍高创意（文案生成场景）
   top_p: 0.9,
@@ -265,26 +259,23 @@ const GLM_CONFIG = {
 
 // 调用示例
 async function callGLM(prompt: string, systemPrompt: string) {
-  const response = await fetch(
-    "https://open.bigmodel.cn/api/paas/v4/chat/completions",
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.GLM_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: "glm-4-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: prompt },
-        ],
-        temperature: 0.8,
-        max_tokens: 4096,
-        stream: true,
-      }),
+  const response = await fetch('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${process.env.GLM_API_KEY}`,
     },
-  );
+    body: JSON.stringify({
+      model: 'glm-4-flash',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: prompt },
+      ],
+      temperature: 0.8,
+      max_tokens: 4096,
+      stream: true,
+    }),
+  });
 }
 ```
 
@@ -302,8 +293,8 @@ async function callGLM(prompt: string, systemPrompt: string) {
 ```typescript
 // 基础配置
 const KIMI_CONFIG = {
-  baseURL: "https://api.moonshot.cn/v1",
-  model: "moonshot-v1-8k", // 短文本用 8k，长文本用 32k/128k
+  baseURL: 'https://api.moonshot.cn/v1',
+  model: 'moonshot-v1-8k', // 短文本用 8k，长文本用 32k/128k
   temperature: 0.6, // 稍低温度，输出更稳定
   top_p: 0.85,
   max_tokens: 8192,
@@ -315,24 +306,20 @@ const KIMI_CONFIG = {
 // moonshot-v1-32k   - 32K 上下文
 // moonshot-v1-128k  - 128K 上下文（适合超长行程）
 
-async function callKimi(
-  prompt: string,
-  systemPrompt: string,
-  longContext = false,
-) {
-  const model = longContext ? "moonshot-v1-128k" : "moonshot-v1-8k";
+async function callKimi(prompt: string, systemPrompt: string, longContext = false) {
+  const model = longContext ? 'moonshot-v1-128k' : 'moonshot-v1-8k';
 
-  const response = await fetch("https://api.moonshot.cn/v1/chat/completions", {
-    method: "POST",
+  const response = await fetch('https://api.moonshot.cn/v1/chat/completions', {
+    method: 'POST',
     headers: {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
       Authorization: `Bearer ${process.env.KIMI_API_KEY}`,
     },
     body: JSON.stringify({
       model,
       messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: prompt },
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: prompt },
       ],
       temperature: 0.6,
       max_tokens: 8192,
@@ -356,8 +343,8 @@ async function callKimi(
 ```typescript
 // 基础配置（小米 MiMo 尚在内测，API 可能变化）
 const MIMO_CONFIG = {
-  baseURL: "https://api.mi.com/v1", // 暂定，以实际文档为准
-  model: "MiMo-7B-RL",
+  baseURL: 'https://api.mi.com/v1', // 暂定，以实际文档为准
+  model: 'MiMo-7B-RL',
   temperature: 0.7,
   max_tokens: 2048, // 轻量模型，输出不宜过长
   stream: true,
@@ -446,10 +433,7 @@ const MIMO_CONFIG = {
 
 ```typescript
 // 行程生成 User Prompt 构建函数
-function buildItineraryPrompt(
-  config: GeneratePlanRequest,
-  cityData: CityKnowledgeBase,
-): string {
+function buildItineraryPrompt(config: GeneratePlanRequest, cityData: CityKnowledgeBase): string {
   return `
 请为以下旅行生成攻略：
 
@@ -457,10 +441,10 @@ function buildItineraryPrompt(
 - 出发城市：${config.fromCity}
 - 目的地：${config.toCity}
 - 出行日期：${config.dateRange.startDate} 至 ${config.dateRange.endDate}（共 ${calculateDays(config.dateRange)} 天）
-- 旅行人数：成人 ${config.travelers.adults} 人${config.travelers.children ? `，儿童 ${config.travelers.children} 人` : ""}
-- 去程交通：${config.transportTo || "自动选择"}
-- 节奏偏好：${config.preferences?.pace || "适中"}
-- 风格偏好：${config.preferences?.style?.join("、") || "综合"}
+- 旅行人数：成人 ${config.travelers.adults} 人${config.travelers.children ? `，儿童 ${config.travelers.children} 人` : ''}
+- 去程交通：${config.transportTo || '自动选择'}
+- 节奏偏好：${config.preferences?.pace || '适中'}
+- 风格偏好：${config.preferences?.style?.join('、') || '综合'}
 
 ## 目的地城市知识库
 
@@ -469,24 +453,23 @@ ${cityData.attractions
   .slice(0, 15)
   .map(
     (a) =>
-      `- ${a.name}（${a.category}，游玩${a.visitDurationMinutes}分钟，${a.priority === "must_visit" ? "必去" : "推荐"}）`,
+      `- ${a.name}（${a.category}，游玩${a.visitDurationMinutes}分钟，${a.priority === 'must_visit' ? '必去' : '推荐'}）`,
   )
-  .join("\n")}
+  .join('\n')}
 
 ### 特色美食
 ${cityData.foods
   .slice(0, 5)
   .map((f) => `- ${f.name}：${f.description}`)
-  .join("\n")}
+  .join('\n')}
 
 ### 大交通信息
 - 去程推荐：${cityData.intercityTransport.to.recommended
     .slice(0, 2)
     .map(
-      (t) =>
-        `${t.trainNumber || t.flightNumber}（出发${t.departureTime}，到达${t.arrivalTime}）`,
+      (t) => `${t.trainNumber || t.flightNumber}（出发${t.departureTime}，到达${t.arrivalTime}）`,
     )
-    .join(" / ")}
+    .join(' / ')}
 
 请生成完整行程 JSON。
   `.trim();
@@ -527,7 +510,7 @@ function extractJSON(rawOutput: string): string {
   }
 
   // 兜底：抛出错误，触发降级策略
-  throw new Error("Failed to extract valid JSON from LLM output");
+  throw new Error('Failed to extract valid JSON from LLM output');
 }
 ````
 
@@ -567,17 +550,13 @@ function extractJSON(rawOutput: string): string {
 ```typescript
 // apps/api/src/services/llm.service.ts
 
-const FALLBACK_CHAIN: ModelId[] = [
-  "deepseek-chat",
-  "glm-4-flash",
-  "moonshot-v1-8k",
-];
+const FALLBACK_CHAIN: ModelId[] = ['deepseek-chat', 'glm-4-flash', 'moonshot-v1-8k'];
 
 const RETRY_CONFIG = {
-  "deepseek-chat": { maxRetries: 3, timeout: 60000 },
-  "glm-4-flash": { maxRetries: 2, timeout: 45000 },
-  "moonshot-v1-8k": { maxRetries: 2, timeout: 90000 },
-  "MiMo-7B-RL": { maxRetries: 2, timeout: 30000 },
+  'deepseek-chat': { maxRetries: 3, timeout: 60000 },
+  'glm-4-flash': { maxRetries: 2, timeout: 45000 },
+  'moonshot-v1-8k': { maxRetries: 2, timeout: 90000 },
+  'MiMo-7B-RL': { maxRetries: 2, timeout: 30000 },
 };
 
 async function callWithFallback(
@@ -586,10 +565,7 @@ async function callWithFallback(
   ctx: RoutingContext,
 ): Promise<string> {
   const primaryModel = routeLLM(ctx);
-  const fallbackChain = [
-    primaryModel,
-    ...FALLBACK_CHAIN.filter((m) => m !== primaryModel),
-  ];
+  const fallbackChain = [primaryModel, ...FALLBACK_CHAIN.filter((m) => m !== primaryModel)];
 
   for (let i = 0; i < fallbackChain.length; i++) {
     const model = fallbackChain[i];
@@ -597,12 +573,7 @@ async function callWithFallback(
 
     for (let retry = 0; retry < config.maxRetries; retry++) {
       try {
-        const result = await callModel(
-          model,
-          prompt,
-          systemPrompt,
-          config.timeout,
-        );
+        const result = await callModel(model, prompt, systemPrompt, config.timeout);
         const json = extractJSON(result); // 提取 JSON
 
         // 记录实际使用的模型（用于监控和计费）
@@ -631,7 +602,7 @@ async function callWithFallback(
   }
 
   // 所有模型都失败了
-  throw new Error("All LLM models failed, please try again later");
+  throw new Error('All LLM models failed, please try again later');
 }
 
 // 判断错误是否可重试
@@ -639,10 +610,10 @@ function isRetriableError(error: unknown): boolean {
   if (error instanceof Error) {
     // 超时、限流、服务器错误可以重试
     return (
-      error.message.includes("timeout") ||
-      error.message.includes("rate_limit") ||
-      error.message.includes("500") ||
-      error.message.includes("503")
+      error.message.includes('timeout') ||
+      error.message.includes('rate_limit') ||
+      error.message.includes('500') ||
+      error.message.includes('503')
     );
   }
   return false;
@@ -682,9 +653,7 @@ function isRetriableError(error: unknown): boolean {
 
 ```typescript
 // 对相同配置的行程请求，缓存 LLM 输出（24小时内有效）
-async function getCachedOrGeneratePlan(
-  config: GeneratePlanRequest,
-): Promise<GeneratedPlan> {
+async function getCachedOrGeneratePlan(config: GeneratePlanRequest): Promise<GeneratedPlan> {
   const cacheKey = `llm:plan:${generateConfigHash(config)}`;
 
   const cached = await redis.get(cacheKey);
@@ -707,7 +676,7 @@ async function getCachedOrGeneratePlan(
 // ❌ 冗余：在 Prompt 中注入所有景点数据
 const bigPrompt = `
 景点列表（共 50 个）：
-${allAttractions.map((a) => JSON.stringify(a)).join("\n")}
+${allAttractions.map((a) => JSON.stringify(a)).join('\n')}
 `;
 
 // ✅ 精简：只注入必要字段，只传前 15 个景点
@@ -717,9 +686,9 @@ ${topAttractions
   .slice(0, 15)
   .map(
     (a) =>
-      `${a.name}(${a.category},${a.visitDurationMinutes}min,${a.priority === "must_visit" ? "必去" : "推荐"})`,
+      `${a.name}(${a.category},${a.visitDurationMinutes}min,${a.priority === 'must_visit' ? '必去' : '推荐'})`,
   )
-  .join("；")}
+  .join('；')}
 `;
 // 节省 ~60% Token
 ```
@@ -766,11 +735,7 @@ const [planDraft, weatherData, transportOptions] = await Promise.allSettled([
 ]);
 
 // 合并结果
-const finalPlan = mergePlanWithWeatherAndTransport(
-  planDraft,
-  weatherData,
-  transportOptions,
-);
+const finalPlan = mergePlanWithWeatherAndTransport(planDraft, weatherData, transportOptions);
 ```
 
 ---

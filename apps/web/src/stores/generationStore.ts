@@ -1,16 +1,16 @@
-import { create } from "zustand";
-import type { DayPlan } from "@path-wise/shared";
+import { create } from 'zustand';
+import type { DayPlan } from '@path-wise/shared';
 
 /**
  * SSE 生成过程中的前端状态机状态
  */
 export type GenerationStatus =
-  | "idle"
-  | "connecting"
-  | "streaming"
-  | "all_complete"
-  | "error"
-  | "timeout";
+  | 'idle'
+  | 'connecting'
+  | 'streaming'
+  | 'all_complete'
+  | 'error'
+  | 'timeout';
 
 interface TripGenerationState {
   status: GenerationStatus;
@@ -40,31 +40,22 @@ interface TripGenerationState {
     estimatedRemainingSeconds?: number,
   ) => void;
   addDayPlan: (day: DayPlan) => void;
-  setDone: (
-    tripId: string,
-    totalCost: number,
-    summary: string,
-    shareUrl?: string,
-  ) => void;
+  setDone: (tripId: string, totalCost: number, summary: string, shareUrl?: string) => void;
   setError: (message: string, partialTripId?: string) => void;
   setTimeout: (partialTripId?: string) => void;
-  addWarning: (
-    code: number,
-    message: string,
-    dayIndex?: number,
-  ) => void;
+  addWarning: (code: number, message: string, dayIndex?: number) => void;
   resetGeneration: () => void;
 }
 
 export const useGenerationStore = create<TripGenerationState>((set) => ({
-  status: "idle",
+  status: 'idle',
   taskId: null,
   tripId: null,
   progressPercent: 0,
   currentStep: 0,
   totalSteps: 0,
-  message: "",
-  subMessage: "",
+  message: '',
+  subMessage: '',
   estimatedRemainingSeconds: 0,
   completedDays: [],
   warnings: [],
@@ -75,7 +66,7 @@ export const useGenerationStore = create<TripGenerationState>((set) => ({
 
   setConnected: (taskId, totalSteps, message) =>
     set({
-      status: "streaming",
+      status: 'streaming',
       taskId,
       totalSteps,
       message,
@@ -94,15 +85,14 @@ export const useGenerationStore = create<TripGenerationState>((set) => ({
 
   addDayPlan: (day) =>
     set((state) => ({
-      completedDays: [
-        ...state.completedDays.filter((d) => d.dayIndex !== day.dayIndex),
-        day,
-      ].sort((a, b) => a.dayIndex - b.dayIndex),
+      completedDays: [...state.completedDays.filter((d) => d.dayIndex !== day.dayIndex), day].sort(
+        (a, b) => a.dayIndex - b.dayIndex,
+      ),
     })),
 
   setDone: (tripId, totalCost, summary, shareUrl) =>
     set({
-      status: "all_complete",
+      status: 'all_complete',
       tripId,
       totalEstimatedCost: totalCost,
       message: summary,
@@ -111,15 +101,15 @@ export const useGenerationStore = create<TripGenerationState>((set) => ({
 
   setError: (message, partialTripId) =>
     set({
-      status: "error",
+      status: 'error',
       errorMessage: message,
       partialTripId: partialTripId ?? null,
     }),
 
   setTimeout: (partialTripId) =>
     set({
-      status: "timeout",
-      errorMessage: "生成超时，可查看已生成部分",
+      status: 'timeout',
+      errorMessage: '生成超时，可查看已生成部分',
       partialTripId: partialTripId ?? null,
     }),
 
@@ -130,14 +120,14 @@ export const useGenerationStore = create<TripGenerationState>((set) => ({
 
   resetGeneration: () =>
     set({
-      status: "idle",
+      status: 'idle',
       taskId: null,
       tripId: null,
       progressPercent: 0,
       currentStep: 0,
       totalSteps: 0,
-      message: "",
-      subMessage: "",
+      message: '',
+      subMessage: '',
       estimatedRemainingSeconds: 0,
       completedDays: [],
       warnings: [],

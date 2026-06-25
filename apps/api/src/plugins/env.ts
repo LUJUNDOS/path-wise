@@ -5,9 +5,9 @@
  * 注册 @fastify/env，启动时校验必需环境变量。
  */
 
-import fastifyEnv from "@fastify/env";
+import fastifyEnv from '@fastify/env';
 
-declare module "fastify" {
+declare module 'fastify' {
   interface FastifyInstance {
     config: {
       PORT: number;
@@ -20,28 +20,28 @@ declare module "fastify" {
 }
 
 const envSchema = {
-  type: "object",
-  required: ["DATABASE_URL"],
+  type: 'object',
+  required: ['DATABASE_URL'],
   properties: {
     PORT: {
-      type: "number",
+      type: 'number',
       default: 3000,
     },
     HOST: {
-      type: "string",
-      default: "0.0.0.0",
+      type: 'string',
+      default: '0.0.0.0',
     },
     DATABASE_URL: {
-      type: "string",
-      default: "postgresql://postgres:postgres@localhost:5432/pathwise",
+      type: 'string',
+      default: 'postgresql://postgres:postgres@localhost:5432/pathwise',
     },
     REDIS_URL: {
-      type: "string",
-      default: "redis://localhost:6379",
+      type: 'string',
+      default: 'redis://localhost:6379',
     },
     NODE_ENV: {
-      type: "string",
-      default: "development",
+      type: 'string',
+      default: 'development',
     },
   },
 };
@@ -51,8 +51,6 @@ const envOptions = {
   dotenv: true,
 };
 
-export async function envPlugin(
-  fastify: import("fastify").FastifyInstance,
-): Promise<void> {
+export async function envPlugin(fastify: import('fastify').FastifyInstance): Promise<void> {
   await fastify.register(fastifyEnv, envOptions);
 }

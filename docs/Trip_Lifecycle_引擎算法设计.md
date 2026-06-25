@@ -76,9 +76,7 @@
 /**
  * Trip Lifecycle 引擎主入口
  */
-async function generateTripLifecycle(
-  params: TripRequest,
-): Promise<TimelineDay[]> {
+async function generateTripLifecycle(params: TripRequest): Promise<TimelineDay[]> {
   // Step 1
   const timeline = initializeTimeline(params);
   // Step 2
@@ -114,14 +112,14 @@ interface DestinationConfig {
 
 interface UserPreferences {
   budget: { total: number; perDay: number };
-  pace: "relaxed" | "balanced" | "intensive";
+  pace: 'relaxed' | 'balanced' | 'intensive';
   members: MemberProfile[];
   accommodation: AccommodationPref;
   dining: DiningPref;
 }
 
 interface MemberProfile {
-  type: "adult" | "child" | "infant" | "elder";
+  type: 'adult' | 'child' | 'infant' | 'elder';
   count: number;
 }
 ```
@@ -145,7 +143,7 @@ interface TimelineItem {
   startTime: string; // "14:00"
   endTime: string; // "16:00"
   duration: number; // 分钟数
-  energyLevel: "LOW" | "MEDIUM" | "HIGH";
+  energyLevel: 'LOW' | 'MEDIUM' | 'HIGH';
   alternatives: POI[]; // B 方案候选
   bookingInfo?: BookingInfo; // 预约/购票信息
 }
@@ -167,8 +165,8 @@ interface POI {
   category: POICategory;
   location: { lat: number; lng: number };
   duration: number; // 建议游玩分钟数
-  energyLevel: "LOW" | "MEDIUM" | "HIGH";
-  bestTimeSlot: ("morning" | "afternoon" | "evening")[];
+  energyLevel: 'LOW' | 'MEDIUM' | 'HIGH';
+  bestTimeSlot: ('morning' | 'afternoon' | 'evening')[];
   suitableFor: MemberType[]; // 适合的人群
   openingHours: { open: string; close: string; closedOn: string[] };
   priceRange: { min: number; max: number };
@@ -898,9 +896,9 @@ async function generateTripLifecycle(params: TripRequest): Promise<TimelineDay[]
 ```typescript
 const ALGORITHM_CONFIG = {
   // 时间窗口
-  DEFAULT_START_TIME: "09:00",
-  DEFAULT_END_TIME: "22:00",
-  TRANSFER_DAY_MAX_ACTIVITY_END: "14:00", // 中转日下午 2 点后不安排新活动
+  DEFAULT_START_TIME: '09:00',
+  DEFAULT_END_TIME: '22:00',
+  TRANSFER_DAY_MAX_ACTIVITY_END: '14:00', // 中转日下午 2 点后不安排新活动
 
   // 体力模型
   MAX_ENERGY_PER_DAY: 8,

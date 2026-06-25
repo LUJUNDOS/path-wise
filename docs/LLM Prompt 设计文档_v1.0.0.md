@@ -530,8 +530,8 @@ prompts/
 ```typescript
 // Prompt A/B 测试
 async function ABTestPrompt(params: PromptParams): Promise<Solution> {
-  const promptA = loadPrompt("v1.0.0/itinerary-generation.txt");
-  const promptB = loadPrompt("v1.1.0/itinerary-generation.txt");
+  const promptA = loadPrompt('v1.0.0/itinerary-generation.txt');
+  const promptB = loadPrompt('v1.1.0/itinerary-generation.txt');
 
   const [solutionA, solutionB] = await Promise.all([
     llmClient.generate(promptA),
@@ -560,15 +560,15 @@ async function ABTestPrompt(params: PromptParams): Promise<Solution> {
 function sanitizeUserInput(input: string): string {
   // 移除可能的 Prompt 注入关键词
   const forbiddenKeywords = [
-    "忽略以上指令",
-    "ignore previous instructions",
-    "你现在扮演",
-    "you are now",
+    '忽略以上指令',
+    'ignore previous instructions',
+    '你现在扮演',
+    'you are now',
   ];
 
   let sanitized = input;
   for (const keyword of forbiddenKeywords) {
-    sanitized = sanitized.replace(new RegExp(keyword, "gi"), "[已过滤]");
+    sanitized = sanitized.replace(new RegExp(keyword, 'gi'), '[已过滤]');
   }
 
   return sanitized;

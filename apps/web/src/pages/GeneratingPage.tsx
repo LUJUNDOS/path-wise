@@ -170,9 +170,7 @@ export default function GeneratingPage() {
             <>
               <AlertTriangle className="h-8 w-8 mx-auto text-destructive" />
               <h2 className="text-lg font-semibold text-destructive">生成失败</h2>
-              <p className="text-sm text-muted-foreground">
-                {store.errorMessage ?? '未知错误'}
-              </p>
+              <p className="text-sm text-muted-foreground">{store.errorMessage ?? '未知错误'}</p>
             </>
           )}
         </div>
@@ -244,9 +242,7 @@ export default function GeneratingPage() {
                   key={`pending-${dayIndex}`}
                   className="rounded-lg border border-dashed bg-muted/30 px-6 py-8 text-center"
                 >
-                  <p className="text-sm text-muted-foreground">
-                    Day {dayIndex} · 等待生成...
-                  </p>
+                  <p className="text-sm text-muted-foreground">Day {dayIndex} · 等待生成...</p>
                 </div>
               );
             })}
@@ -257,10 +253,7 @@ export default function GeneratingPage() {
         {isError && (
           <div className="flex flex-col items-center gap-3">
             {store.partialTripId && (
-              <Button
-                variant="outline"
-                onClick={() => navigate(`/trip/${store.partialTripId}`)}
-              >
+              <Button variant="outline" onClick={() => navigate(`/trip/${store.partialTripId}`)}>
                 查看已生成部分
               </Button>
             )}

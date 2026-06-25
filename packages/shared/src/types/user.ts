@@ -3,7 +3,7 @@
  * 依据：docs/API接口设计规格书_v1.0.0.md §2.2
  */
 
-import type { BudgetLevel, PaceLevel, AccommodationType } from "./base.js";
+import type { BudgetLevel, PaceLevel, AccommodationType } from './base.js';
 
 /** 用户偏好 */
 export interface UserPreferences {

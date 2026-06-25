@@ -38,7 +38,7 @@
 
 ```typescript
 const users = fetchUsers();
-users.forEach(user => {
+users.forEach((user) => {
   const posts = fetchUserPosts(user.id);
   renderUserPosts(posts);
 });
@@ -55,9 +55,9 @@ usersWithPosts.forEach(({ user, posts }) => {
 
 ### 影响分析
 
-| 方面 | 影响 | 严重程度 |
-|--------|--------|----------|
-| Performance（性能） | [描述] | High（高） |
-| User Experience（用户体验） | [描述] | High（高） |
-| Scalability（可扩展性） | [描述] | Critical（严重） |
-| Maintainability（可维护性） | [描述] | Medium（中） |
+| 方面                        | 影响   | 严重程度         |
+| --------------------------- | ------ | ---------------- |
+| Performance（性能）         | [描述] | High（高）       |
+| User Experience（用户体验） | [描述] | High（高）       |
+| Scalability（可扩展性）     | [描述] | Critical（严重） |
+| Maintainability（可维护性） | [描述] | Medium（中）     |

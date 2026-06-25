@@ -6,15 +6,15 @@
 
 ## 文件命名
 
-| 位置 | 命名方式 | 示例 |
-|------|----------|------|
-| 路由（`routes/`） | `snake_case` | `city_service.ts`、`trip_generate.ts` |
-| 插件（`plugins/`） | `snake_case` | `error_handler.ts`、`env.ts` |
-| 服务（`services/`） | `snake_case` | `city_service.ts`、`trip_service.ts` |
-| 适配器（`adapters/`） | `snake_case` | `amap_adapter.ts`、`llm_router.ts` |
-| 类型（`types/`） | `PascalCase` | `errors.ts` |
-| 工具（`utils/`） | `camelCase` | `formatDate.ts`、`debounce.ts` |
-| 测试文件 | 源文件名 + `.test` 或 `.spec` | `city_service.test.ts` |
+| 位置                  | 命名方式                      | 示例                                  |
+| --------------------- | ----------------------------- | ------------------------------------- |
+| 路由（`routes/`）     | `snake_case`                  | `city_service.ts`、`trip_generate.ts` |
+| 插件（`plugins/`）    | `snake_case`                  | `error_handler.ts`、`env.ts`          |
+| 服务（`services/`）   | `snake_case`                  | `city_service.ts`、`trip_service.ts`  |
+| 适配器（`adapters/`） | `snake_case`                  | `amap_adapter.ts`、`llm_router.ts`    |
+| 类型（`types/`）      | `PascalCase`                  | `errors.ts`                           |
+| 工具（`utils/`）      | `camelCase`                   | `formatDate.ts`、`debounce.ts`        |
+| 测试文件              | 源文件名 + `.test` 或 `.spec` | `city_service.test.ts`                |
 
 ## 架构分层
 
@@ -30,18 +30,18 @@
 
 ```typescript
 // 1. 标准库
-import { randomUUID } from "node:crypto";
+import { randomUUID } from 'node:crypto';
 
 // 2. 第三方包
-import type { FastifyInstance } from "fastify";
-import { PrismaClient } from "@prisma/client";
+import type { FastifyInstance } from 'fastify';
+import { PrismaClient } from '@prisma/client';
 
 // 3. 共享类型
-import type { TripRequest } from "@path-wise/shared";
+import type { TripRequest } from '@path-wise/shared';
 
 // 4. 本地模块
-import { CityNotFoundError } from "../types/errors.js";
-import { searchPOI } from "../services/city_service.js";
+import { CityNotFoundError } from '../types/errors.js';
+import { searchPOI } from '../services/city_service.js';
 ```
 
 ## 常用命令
@@ -57,10 +57,10 @@ npx pnpm --filter api exec npx tsx prisma/seed.ts  # 运行 seed
 
 ## 关键依赖
 
-| 包 | 用途 |
-|------|------|
-| `fastify` 4.28+ | HTTP 框架 |
+| 包                                   | 用途                       |
+| ------------------------------------ | -------------------------- |
+| `fastify` 4.28+                      | HTTP 框架                  |
 | `@fastify/cors` / `sensible` / `env` | CORS / 错误增强 / 环境校验 |
-| `fastify-plugin` | 封装 Prisma 插件 |
-| `@prisma/client` | ORM |
-| `@path-wise/shared` | 共享类型（workspace:*） |
+| `fastify-plugin`                     | 封装 Prisma 插件           |
+| `@prisma/client`                     | ORM                        |
+| `@path-wise/shared`                  | 共享类型（workspace:\*）   |

@@ -3,7 +3,7 @@
  * 依据：docs/API接口设计规格书_v1.0.0.md §8.3（原 §7.3）
  */
 
-import type { BudgetLevel } from "./base.js";
+import type { BudgetLevel } from './base.js';
 
 /** 住宿搜索请求 */
 export interface AccommodationSearchRequest {
@@ -12,9 +12,9 @@ export interface AccommodationSearchRequest {
   checkOutDate: string; // YYYY-MM-DD
   budget: BudgetLevel;
   preferences?: {
-    location?: "center" | "near_station" | "near_attraction";
+    location?: 'center' | 'near_station' | 'near_attraction';
     amenities?: string[];
-    roomType?: "twin" | "double" | "family";
+    roomType?: 'twin' | 'double' | 'family';
   };
   travelers: {
     adults: number;
@@ -38,7 +38,7 @@ export interface AccommodationSearchOption {
     platform: string;
     url: string;
   };
-  availability: "available" | "few_left" | "sold_out";
+  availability: 'available' | 'few_left' | 'sold_out';
   reason: string;
 }
 

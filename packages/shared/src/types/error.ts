@@ -57,41 +57,41 @@ export enum ErrorCode {
 
 /** 错误消息映射（用户友好） */
 export const ErrorMessageMap: Record<number, string> = {
-  [ErrorCode.SUCCESS]: "成功",
+  [ErrorCode.SUCCESS]: '成功',
 
-  [ErrorCode.BAD_REQUEST]: "请求参数有误，请检查后重试",
-  [ErrorCode.MISSING_REQUIRED_FIELD]: "缺少必填字段",
-  [ErrorCode.FIELD_FORMAT_ERROR]: "字段格式错误",
-  [ErrorCode.DESTINATIONS_EMPTY]: "目的地不能为空",
-  [ErrorCode.DATE_FORMAT_ERROR]: "日期格式错误，应为 YYYY-MM-DD",
-  [ErrorCode.DAYS_OUT_OF_RANGE]: "行程天数必须在 1~30 之间",
-  [ErrorCode.TRAVELERS_EMPTY]: "出行人员数量不能为 0",
+  [ErrorCode.BAD_REQUEST]: '请求参数有误，请检查后重试',
+  [ErrorCode.MISSING_REQUIRED_FIELD]: '缺少必填字段',
+  [ErrorCode.FIELD_FORMAT_ERROR]: '字段格式错误',
+  [ErrorCode.DESTINATIONS_EMPTY]: '目的地不能为空',
+  [ErrorCode.DATE_FORMAT_ERROR]: '日期格式错误，应为 YYYY-MM-DD',
+  [ErrorCode.DAYS_OUT_OF_RANGE]: '行程天数必须在 1~30 之间',
+  [ErrorCode.TRAVELERS_EMPTY]: '出行人员数量不能为 0',
 
-  [ErrorCode.TOKEN_MISSING]: "未提供认证 Token",
-  [ErrorCode.TOKEN_EXPIRED]: "Token 已过期",
-  [ErrorCode.TOKEN_INVALID]: "Token 无效",
-  [ErrorCode.FORBIDDEN]: "无权访问该资源",
-  [ErrorCode.RESOURCE_NOT_FOUND]: "请求的资源不存在",
+  [ErrorCode.TOKEN_MISSING]: '未提供认证 Token',
+  [ErrorCode.TOKEN_EXPIRED]: 'Token 已过期',
+  [ErrorCode.TOKEN_INVALID]: 'Token 无效',
+  [ErrorCode.FORBIDDEN]: '无权访问该资源',
+  [ErrorCode.RESOURCE_NOT_FOUND]: '请求的资源不存在',
 
-  [ErrorCode.WARNING_POI_HOURS_UNVERIFIED]: "部分景点营业时间未确认",
-  [ErrorCode.WARNING_TIGHT_SCHEDULE]: "行程安排较紧",
-  [ErrorCode.WARNING_BUDGET_OVERFLOW]: "预算可能超支",
+  [ErrorCode.WARNING_POI_HOURS_UNVERIFIED]: '部分景点营业时间未确认',
+  [ErrorCode.WARNING_TIGHT_SCHEDULE]: '行程安排较紧',
+  [ErrorCode.WARNING_BUDGET_OVERFLOW]: '预算可能超支',
 
-  [ErrorCode.AMAP_API_FAILED]: "高德地图服务异常",
-  [ErrorCode.TRAIN_API_UNAVAILABLE]: "12306 接口暂不可用",
-  [ErrorCode.EXTERNAL_API_TIMEOUT]: "外部服务超时",
-  [ErrorCode.CITY_KB_BUILDING]: "该城市知识库建设中，暂不支持",
+  [ErrorCode.AMAP_API_FAILED]: '高德地图服务异常',
+  [ErrorCode.TRAIN_API_UNAVAILABLE]: '12306 接口暂不可用',
+  [ErrorCode.EXTERNAL_API_TIMEOUT]: '外部服务超时',
+  [ErrorCode.CITY_KB_BUILDING]: '该城市知识库建设中，暂不支持',
 
-  [ErrorCode.TRIP_GENERATION_FAILED]: "攻略生成失败，请重试",
-  [ErrorCode.INTERNAL_ERROR]: "服务器内部错误，请稍后重试",
-  [ErrorCode.SERVICE_BUSY]: "服务繁忙，请稍后重试",
+  [ErrorCode.TRIP_GENERATION_FAILED]: '攻略生成失败，请重试',
+  [ErrorCode.INTERNAL_ERROR]: '服务器内部错误，请稍后重试',
+  [ErrorCode.SERVICE_BUSY]: '服务繁忙，请稍后重试',
 
-  [ErrorCode.TRANSPORT_SEARCH_FAILED]: "交通信息查询失败",
-  [ErrorCode.CITY_NOT_FOUND]: "该城市暂不支持",
-  [ErrorCode.LLM_API_ERROR]: "AI 服务暂不可用",
+  [ErrorCode.TRANSPORT_SEARCH_FAILED]: '交通信息查询失败',
+  [ErrorCode.CITY_NOT_FOUND]: '该城市暂不支持',
+  [ErrorCode.LLM_API_ERROR]: 'AI 服务暂不可用',
 
-  [ErrorCode.RATE_LIMIT_TRIP_GENERATE]: "攻略生成次数超限，请 1 小时后再试",
-  [ErrorCode.RATE_LIMIT_GLOBAL]: "请求频率超限，请稍后再试",
+  [ErrorCode.RATE_LIMIT_TRIP_GENERATE]: '攻略生成次数超限，请 1 小时后再试',
+  [ErrorCode.RATE_LIMIT_GLOBAL]: '请求频率超限，请稍后再试',
 };
 
 /** 统一错误响应体 */
@@ -104,10 +104,4 @@ export interface ErrorResponse {
 }
 
 /** SSE 事件类型 */
-export type SSEEventType =
-  | "connected"
-  | "progress"
-  | "day_ready"
-  | "done"
-  | "error"
-  | "warning";
+export type SSEEventType = 'connected' | 'progress' | 'day_ready' | 'done' | 'error' | 'warning';

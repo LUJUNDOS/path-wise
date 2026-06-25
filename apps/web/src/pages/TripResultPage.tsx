@@ -36,12 +36,15 @@ export default function TripResultPage() {
 
   const handleShare = useCallback(() => {
     if (trip?.shareUrl) {
-      navigator.clipboard.writeText(trip.shareUrl).then(() => {
-        setShareUrlCopied(true);
-        setTimeout(() => setShareUrlCopied(false), 3000);
-      }).catch(() => {
-        /* clipboard failed — silently ignore */
-      });
+      navigator.clipboard
+        .writeText(trip.shareUrl)
+        .then(() => {
+          setShareUrlCopied(true);
+          setTimeout(() => setShareUrlCopied(false), 3000);
+        })
+        .catch(() => {
+          /* clipboard failed — silently ignore */
+        });
     }
   }, [trip?.shareUrl]);
 
@@ -54,11 +57,12 @@ export default function TripResultPage() {
   }
 
   if (error || !trip) {
-    const message = error instanceof ApiError
-      ? error.message
-      : error instanceof Error
+    const message =
+      error instanceof ApiError
         ? error.message
-        : '攻略不存在';
+        : error instanceof Error
+          ? error.message
+          : '攻略不存在';
 
     return (
       <div className="min-h-screen bg-background">
@@ -175,12 +179,7 @@ export default function TripResultPage() {
 
           {/* Bottom: regenerate CTA */}
           <div className="mt-8 text-center">
-            <Button
-              variant="outline"
-              size="lg"
-              onClick={() => navigate('/')}
-              className="gap-2"
-            >
+            <Button variant="outline" size="lg" onClick={() => navigate('/')} className="gap-2">
               <RefreshCw className="h-4 w-4" />
               重新生成攻略
             </Button>

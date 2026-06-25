@@ -1,7 +1,16 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
-import { MapPin, Target, Calendar, Users, Settings, Rocket, ChevronDown, ChevronUp } from 'lucide-react';
+import {
+  MapPin,
+  Target,
+  Calendar,
+  Users,
+  Settings,
+  Rocket,
+  ChevronDown,
+  ChevronUp,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { useTripFormStore } from '@/stores/tripFormStore';
@@ -71,11 +80,12 @@ export default function HomePage() {
         navigate('/generating');
       }
     } catch (err: unknown) {
-      const message = err instanceof ApiError
-        ? err.message
-        : err instanceof Error
+      const message =
+        err instanceof ApiError
           ? err.message
-          : '请求失败，请稍后重试';
+          : err instanceof Error
+            ? err.message
+            : '请求失败，请稍后重试';
       setErrors({ submit: message });
     }
   }, [store, navigate, validateMutation]);
@@ -133,9 +143,7 @@ export default function HomePage() {
       <main className="container mx-auto max-w-2xl px-4 py-6 space-y-8">
         <div className="text-center space-y-1">
           <h1 className="text-2xl font-bold tracking-tight">生成你的专属旅行攻略</h1>
-          <p className="text-sm text-muted-foreground">
-            AI 驱动，智能规划，让每次出行都从容不迫
-          </p>
+          <p className="text-sm text-muted-foreground">AI 驱动，智能规划，让每次出行都从容不迫</p>
         </div>
 
         {/* Section 1: Departure City (FE-002) */}
@@ -171,8 +179,7 @@ export default function HomePage() {
           />
           {store.destinations.length > 0 && (
             <p className="text-xs text-muted-foreground">
-              共 {totalDays} 天
-              {store.destinations.length >= 2 && '（含中转日）'}
+              共 {totalDays} 天{store.destinations.length >= 2 && '（含中转日）'}
             </p>
           )}
           {errors['destinations'] && (
@@ -211,9 +218,7 @@ export default function HomePage() {
             onChildrenChange={store.setChildren}
             onEldersChange={store.setElders}
           />
-          {errors['adults'] && (
-            <p className="text-xs text-destructive">{errors['adults']}</p>
-          )}
+          {errors['adults'] && <p className="text-xs text-destructive">{errors['adults']}</p>}
         </section>
 
         {/* Section 5: Preferences (FE-006) */}

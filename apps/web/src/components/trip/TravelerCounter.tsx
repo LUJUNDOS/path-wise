@@ -147,13 +147,7 @@ export function TravelerCounter({
           </div>
         </div>
       )}
-      <Counter
-        label="老人"
-        value={elders}
-        max={10}
-        onChange={onEldersChange}
-        disabled={disabled}
-      />
+      <Counter label="老人" value={elders} max={10} onChange={onEldersChange} disabled={disabled} />
     </div>
   );
 }

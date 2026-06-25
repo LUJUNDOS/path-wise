@@ -124,7 +124,13 @@ describe('App 路由', () => {
       // 验证每个 lazy 路由都能在 Suspense 包裹下正常渲染
       // 所有页面组件已被 mock，若 lazy 解析失败则不会渲染
       const routes = ['/', '/generating', '/trip/test', '/share/test', '/history'];
-      const expectedIds = ['page-home', 'page-generating', 'page-trip-result', 'page-share-view', 'page-history'];
+      const expectedIds = [
+        'page-home',
+        'page-generating',
+        'page-trip-result',
+        'page-share-view',
+        'page-history',
+      ];
 
       for (let i = 0; i < routes.length; i++) {
         const { unmount } = render(
@@ -189,12 +195,12 @@ describe('路由总数', () => {
     // 设计文档 §2.1 站点地图定义：首页、生成中、行程结果、分享、历史、404
     // 共 6 条路由
     const expectedRoutes = [
-      '/',              // HomePage
-      '/generating',    // GeneratingPage
-      '/trip/:tripId',  // TripResultPage
-      '/share/:shareId',// ShareViewPage
-      '/history',       // HistoryPage
-      '*',              // NotFoundPage (catch-all)
+      '/', // HomePage
+      '/generating', // GeneratingPage
+      '/trip/:tripId', // TripResultPage
+      '/share/:shareId', // ShareViewPage
+      '/history', // HistoryPage
+      '*', // NotFoundPage (catch-all)
     ];
     expect(expectedRoutes).toHaveLength(6);
   });

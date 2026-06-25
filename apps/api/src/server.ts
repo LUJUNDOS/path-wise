@@ -6,27 +6,27 @@
  * 注册链：cors → sensible → error_handler → 路由组
  */
 
-import Fastify from "fastify";
-import cors from "@fastify/cors";
-import sensible from "@fastify/sensible";
+import Fastify from 'fastify';
+import cors from '@fastify/cors';
+import sensible from '@fastify/sensible';
 
-import { errorHandlerPlugin } from "./plugins/error_handler.js";
-import { envPlugin } from "./plugins/env.js";
-import prismaPlugin from "./plugins/prisma.js";
+import { errorHandlerPlugin } from './plugins/error_handler.js';
+import { envPlugin } from './plugins/env.js';
+import prismaPlugin from './plugins/prisma.js';
 
 // 路由
-import { tripGenerateRoutes } from "./routes/trip_generate.js";
-import { tripCrudRoutes } from "./routes/trip_crud.js";
-import { tripShareRoutes } from "./routes/trip_share.js";
-import { transportRoutes } from "./routes/transport.js";
-import { accommodationRoutes } from "./routes/accommodation.js";
-import { cityRoutes } from "./routes/city.js";
-import { userRoutes } from "./routes/user.js";
-import { shareCoverRoutes } from "./routes/share_cover.js";
+import { tripGenerateRoutes } from './routes/trip_generate.js';
+import { tripCrudRoutes } from './routes/trip_crud.js';
+import { tripShareRoutes } from './routes/trip_share.js';
+import { transportRoutes } from './routes/transport.js';
+import { accommodationRoutes } from './routes/accommodation.js';
+import { cityRoutes } from './routes/city.js';
+import { userRoutes } from './routes/user.js';
+import { shareCoverRoutes } from './routes/share_cover.js';
 
 const server = Fastify({
   logger: {
-    level: process.env.NODE_ENV === "production" ? "info" : "debug",
+    level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
   },
 });
 
@@ -52,28 +52,28 @@ async function start(): Promise<void> {
       await api.register(userRoutes);
       await api.register(shareCoverRoutes);
     },
-    { prefix: "/api/v1" },
+    { prefix: '/api/v1' },
   );
 
   // ── 4. Health Check ──
-  server.get("/health", async () => {
+  server.get('/health', async () => {
     return {
-      status: "ok",
+      status: 'ok',
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
     };
   });
 
   // ── 5. 已注册路由列表（开发调试用）──
-  server.get("/api/v1/routes", async () => {
+  server.get('/api/v1/routes', async () => {
     const routes: string[] = [];
     server.printRoutes({ commonPrefix: false });
     return { routes };
   });
 
   // ── 6. 启动 ──
-  const port = parseInt(process.env.PORT || "3000", 10);
-  const host = process.env.HOST || "0.0.0.0";
+  const port = parseInt(process.env.PORT || '3000', 10);
+  const host = process.env.HOST || '0.0.0.0';
 
   try {
     await server.listen({ port, host });

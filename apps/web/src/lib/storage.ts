@@ -3,7 +3,7 @@
  * 封装 localStorage 读写，提供类型安全 + 异常安全 + 默认值。
  */
 
-const RECENT_CITIES_KEY = "pathwise_recent_cities";
+const RECENT_CITIES_KEY = 'pathwise_recent_cities';
 
 /**
  * 安全读取 JSON 值，异常或不存在时返回默认值。

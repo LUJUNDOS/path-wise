@@ -144,7 +144,7 @@ export interface City {
 /**
  * 季节枚举
  */
-export type Season = "spring" | "summer" | "autumn" | "winter";
+export type Season = 'spring' | 'summer' | 'autumn' | 'winter';
 
 // ------------------- 接口类型 -------------------
 
@@ -168,14 +168,14 @@ export type GetCityResponse = ApiResponse<City>;
  * 景点分类
  */
 export type AttractionCategory =
-  | "nature" // 自然景观（山、湖、海、森林）
-  | "history" // 历史文化（古迹、博物馆）
-  | "food" // 美食（特色餐厅、夜市、市集）
-  | "entertainment" // 娱乐休闲（主题公园、购物中心）
-  | "religion" // 宗教场所（寺庙、教堂）
-  | "art" // 艺术创意（画廊、创意园区）
-  | "sport" // 运动户外（徒步、攀岩）
-  | "shopping"; // 购物（商业街、特产市场）
+  | 'nature' // 自然景观（山、湖、海、森林）
+  | 'history' // 历史文化（古迹、博物馆）
+  | 'food' // 美食（特色餐厅、夜市、市集）
+  | 'entertainment' // 娱乐休闲（主题公园、购物中心）
+  | 'religion' // 宗教场所（寺庙、教堂）
+  | 'art' // 艺术创意（画廊、创意园区）
+  | 'sport' // 运动户外（徒步、攀岩）
+  | 'shopping'; // 购物（商业街、特产市场）
 
 /**
  * 景点信息
@@ -194,12 +194,12 @@ export interface Attraction {
   coverImage: string; // 封面图片 URL
   rating?: number; // 评分（1.0 - 5.0）
   ratingCount?: number; // 评分人数
-  priceType: "free" | "paid" | "optional"; // 收费类型
+  priceType: 'free' | 'paid' | 'optional'; // 收费类型
   ticketPrice?: {
     adult: Money; // 成人票价（分）
     child?: Money; // 儿童票价
     elder?: Money; // 老人票价
-    currency: "CNY";
+    currency: 'CNY';
   };
   openingHours: OpeningHours;
   visitDurationMinutes: Minutes; // 建议游玩时长
@@ -207,7 +207,7 @@ export interface Attraction {
   tips?: string[]; // 旅游小贴士
   nearbyAttractions?: string[]; // 周边景点 ID（用于推荐）
   trafficInfo?: string; // 交通信息（文本描述）
-  priority: "must_visit" | "recommended" | "optional"; // 推荐优先级
+  priority: 'must_visit' | 'recommended' | 'optional'; // 推荐优先级
 }
 
 /**
@@ -216,14 +216,7 @@ export interface Attraction {
 export interface OpeningHours {
   isOpen24h: boolean;
   schedule?: {
-    [key in
-      | "monday"
-      | "tuesday"
-      | "wednesday"
-      | "thursday"
-      | "friday"
-      | "saturday"
-      | "sunday"]?: {
+    [key in 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday']?: {
       open: string; // 开放时间（HH:MM 格式）
       close: string; // 关闭时间（HH:MM 格式）
       closed?: boolean; // 是否当天不开放
@@ -237,16 +230,14 @@ export interface OpeningHours {
 /** GET /api/v1/cities/:cityId/attractions - 请求参数 */
 export interface ListAttractionsParams extends CursorPaginationParams {
   category?: AttractionCategory;
-  priority?: "must_visit" | "recommended" | "optional";
+  priority?: 'must_visit' | 'recommended' | 'optional';
   keyword?: string;
-  sort?: "rating" | "visitDuration" | "price";
-  sortOrder?: "asc" | "desc";
+  sort?: 'rating' | 'visitDuration' | 'price';
+  sortOrder?: 'asc' | 'desc';
 }
 
 /** GET /api/v1/cities/:cityId/attractions - 响应 */
-export type ListAttractionsResponse = ApiResponse<
-  PaginatedResponse<Attraction>
->;
+export type ListAttractionsResponse = ApiResponse<PaginatedResponse<Attraction>>;
 
 /** GET /api/v1/attractions/:attractionId - 响应 */
 export type GetAttractionResponse = ApiResponse<Attraction>;
@@ -265,19 +256,19 @@ export type GetAttractionResponse = ApiResponse<Attraction>;
  * 大交通类型
  */
 export type TransportType =
-  | "high_speed_rail" // 高铁（P0）
-  | "normal_train" // 普速火车（P0）
-  | "flight" // 航班（P0）
-  | "bus" // 长途大巴（P1）
-  | "auto"; // 自动选择（系统根据距离推荐）
+  | 'high_speed_rail' // 高铁（P0）
+  | 'normal_train' // 普速火车（P0）
+  | 'flight' // 航班（P0）
+  | 'bus' // 长途大巴（P1）
+  | 'auto'; // 自动选择（系统根据距离推荐）
 
 /**
  * 日类型
  */
 export type DayType =
-  | "move_day" // 出发日（从出发地前往目的地，主要时间在交通上）
-  | "explore_day" // 游览日（在目的地游览景点，无长途交通）
-  | "transit_day"; // 中转日（城市间移动，当天到达下一城市）
+  | 'move_day' // 出发日（从出发地前往目的地，主要时间在交通上）
+  | 'explore_day' // 游览日（在目的地游览景点，无长途交通）
+  | 'transit_day'; // 中转日（城市间移动，当天到达下一城市）
 
 /**
  * 生成行程的请求
@@ -293,13 +284,13 @@ export interface GeneratePlanRequest {
   budget?: {
     total?: Money; // 总预算（分）
     perPerson?: Money; // 人均预算（分）
-    currency: "CNY";
+    currency: 'CNY';
   };
   preferences?: {
-    pace?: "relaxed" | "moderate" | "intensive"; // 节奏（轻松/适中/紧凑）
-    style?: ("nature" | "history" | "food" | "entertainment")[]; // 偏好风格
+    pace?: 'relaxed' | 'moderate' | 'intensive'; // 节奏（轻松/适中/紧凑）
+    style?: ('nature' | 'history' | 'food' | 'entertainment')[]; // 偏好风格
     avoidCrowds?: boolean; // 避开热门景点
-    accommodationType?: "budget" | "mid_range" | "luxury"; // 住宿档次
+    accommodationType?: 'budget' | 'mid_range' | 'luxury'; // 住宿档次
   };
   llmModel?: string; // 指定 LLM 模型（可选，默认自动路由）
 }
@@ -311,7 +302,7 @@ export interface GeneratedPlan {
   id: string;
   userId: string;
   title: string;
-  status: "generating" | "completed" | "failed";
+  status: 'generating' | 'completed' | 'failed';
   dateRange: DateRange;
   fromCity: City;
   toCity: City;
@@ -356,7 +347,7 @@ export interface Activity {
   startTime: string; // 开始时间（HH:MM 格式）
   endTime: string; // 结束时间（HH:MM 格式）
   durationMinutes: Minutes; // 时长
-  type: "attraction" | "meal" | "transport" | "rest" | "free"; // 活动类型
+  type: 'attraction' | 'meal' | 'transport' | 'rest' | 'free'; // 活动类型
   ticketRequired?: boolean; // 是否需要购票
   estimatedCost?: Money; // 预估费用（分）
   tips?: string[]; // 小贴士
@@ -399,7 +390,7 @@ export interface TransportInfo {
  */
 export interface Meal {
   id: string;
-  mealType: "breakfast" | "lunch" | "dinner" | "snack";
+  mealType: 'breakfast' | 'lunch' | 'dinner' | 'snack';
   name: string;
   description?: string;
   location?: string;
@@ -415,7 +406,7 @@ export interface Meal {
 export interface Accommodation {
   id: string;
   name: string;
-  type: "hotel" | "hostel" | "guesthouse" | "resort" | "apartment";
+  type: 'hotel' | 'hostel' | 'guesthouse' | 'resort' | 'apartment';
   stars?: number; // 星级（1-5）
   location: string;
   locationCoord?: LatLng;
@@ -436,7 +427,7 @@ export interface DayBudget {
   accommodation?: Money; // 住宿费用
   misc?: Money; // 其他费用
   total: Money; // 当日总计
-  currency: "CNY";
+  currency: 'CNY';
 }
 
 /**
@@ -469,9 +460,9 @@ export type GeneratePlanResponse = ApiResponse<GeneratedPlan>;
 
 /** GET /api/v1/plans - 请求参数 */
 export interface ListPlansParams extends CursorPaginationParams {
-  status?: "generating" | "completed" | "failed";
-  sort?: "createdAt" | "startDate";
-  sortOrder?: "asc" | "desc";
+  status?: 'generating' | 'completed' | 'failed';
+  sort?: 'createdAt' | 'startDate';
+  sortOrder?: 'asc' | 'desc';
 }
 
 /** GET /api/v1/plans - 响应 */
@@ -511,10 +502,10 @@ export interface SearchTransportRequest {
   date: string; // 出行日期（ISO 8601 date）
   prefer?: TransportType[]; // 偏好交通方式（不传则返回所有）
   departTimePeriod?:
-    | "morning" // 早班（06:00-12:00）
-    | "afternoon" // 下午班（12:00-18:00）
-    | "evening" // 晚班（18:00-24:00）
-    | "overnight"; // 夜班（00:00-06:00）
+    | 'morning' // 早班（06:00-12:00）
+    | 'afternoon' // 下午班（12:00-18:00）
+    | 'evening' // 晚班（18:00-24:00）
+    | 'overnight'; // 夜班（00:00-06:00）
   passengers: Travelers;
 }
 
@@ -543,7 +534,7 @@ export interface TransportOption {
   };
   // 可用性
   availableSeats: {
-    [seatClass: string]: number | "enough" | "tight" | "none";
+    [seatClass: string]: number | 'enough' | 'tight' | 'none';
     // number: 具体余票数
     // "enough": 余票充足（不显示具体数字）
     // "tight": 余票紧张（< 5 张）
@@ -553,7 +544,7 @@ export interface TransportOption {
   stops?: string[]; // 途经站（普速火车常用）
   notes?: string; // 备注（如 "隔夜车，含卧铺"）
   bookingUrls?: {
-    "12306"?: string;
+    '12306'?: string;
     ctrip?: string;
     fliggy?: string;
   };
@@ -566,7 +557,7 @@ export interface TransportOption {
  */
 export interface SearchTransportData {
   options: TransportOption[];
-  source: "mock" | "amap_api" | "ctrip_api" | "cache"; // 数据来源
+  source: 'mock' | 'amap_api' | 'ctrip_api' | 'cache'; // 数据来源
   expiresAt: string;
   cacheHit: boolean;
 }
@@ -604,19 +595,19 @@ export interface WeatherForecast {
 }
 
 export type WeatherCondition =
-  | "sunny" // 晴
-  | "partly_cloudy" // 多云
-  | "cloudy" // 阴
-  | "light_rain" // 小雨
-  | "moderate_rain" // 中雨
-  | "heavy_rain" // 大雨
-  | "thunderstorm" // 雷暴
-  | "light_snow" // 小雪
-  | "moderate_snow" // 中雪
-  | "heavy_snow" // 大雪
-  | "foggy" // 雾
-  | "haze" // 霾
-  | "windy"; // 大风
+  | 'sunny' // 晴
+  | 'partly_cloudy' // 多云
+  | 'cloudy' // 阴
+  | 'light_rain' // 小雨
+  | 'moderate_rain' // 中雨
+  | 'heavy_rain' // 大雨
+  | 'thunderstorm' // 雷暴
+  | 'light_snow' // 小雪
+  | 'moderate_snow' // 中雪
+  | 'heavy_snow' // 大雪
+  | 'foggy' // 雾
+  | 'haze' // 霾
+  | 'windy'; // 大风
 
 /**
  * GET /api/v1/weather - 请求参数
@@ -633,7 +624,7 @@ export interface GetWeatherParams {
 export type GetWeatherResponse = ApiResponse<{
   cityId: string;
   forecasts: WeatherForecast[];
-  source: "hefeng" | "mock"; // 数据来源
+  source: 'hefeng' | 'mock'; // 数据来源
   updatedAt: string;
 }>;
 ```
@@ -711,7 +702,7 @@ export interface UserProfile {
   email: string;
   nickname: string;
   avatarUrl?: string;
-  role: "user" | "premium" | "admin";
+  role: 'user' | 'premium' | 'admin';
   planCount: number; // 已创建的行程数量
   createdAt: string; // ISO 8601 datetime
 }
@@ -852,11 +843,11 @@ export type ErrorCodeType = (typeof ErrorCode)[keyof typeof ErrorCode];
  * SSE 事件类型枚举
  */
 export type SSEEventType =
-  | "connected" // 连接建立
-  | "progress" // 进度更新
-  | "day_generated" // 单日行程生成完成
-  | "completed" // 全部生成完成
-  | "error"; // 生成失败
+  | 'connected' // 连接建立
+  | 'progress' // 进度更新
+  | 'day_generated' // 单日行程生成完成
+  | 'completed' // 全部生成完成
+  | 'error'; // 生成失败
 
 /**
  * SSE 基础事件
@@ -871,7 +862,7 @@ export interface SSEBaseEvent {
  * 连接建立事件
  */
 export interface SSEConnectedEvent extends SSEBaseEvent {
-  event: "connected";
+  event: 'connected';
   data: {
     planId: string;
     message: string; // 如 "开始生成行程..."
@@ -882,7 +873,7 @@ export interface SSEConnectedEvent extends SSEBaseEvent {
  * 进度更新事件
  */
 export interface SSEProgressEvent extends SSEBaseEvent {
-  event: "progress";
+  event: 'progress';
   data: {
     stage: SSEProgressStage;
     percent: number; // 0-100
@@ -893,17 +884,17 @@ export interface SSEProgressEvent extends SSEBaseEvent {
 }
 
 export type SSEProgressStage =
-  | "initializing" // 初始化（解析用户输入）
-  | "fetching_data" // 获取数据（景点、交通、天气）
-  | "generating" // LLM 生成中
-  | "optimizing" // 优化路线
-  | "finalizing"; // 收尾（保存结果）
+  | 'initializing' // 初始化（解析用户输入）
+  | 'fetching_data' // 获取数据（景点、交通、天气）
+  | 'generating' // LLM 生成中
+  | 'optimizing' // 优化路线
+  | 'finalizing'; // 收尾（保存结果）
 
 /**
  * 单日行程生成完成事件
  */
 export interface SSEDayGeneratedEvent extends SSEBaseEvent {
-  event: "day_generated";
+  event: 'day_generated';
   data: {
     dayIndex: number; // 第几天（从 1 开始）
     day: DayPlan; // 该天完整数据
@@ -914,7 +905,7 @@ export interface SSEDayGeneratedEvent extends SSEBaseEvent {
  * 全部生成完成事件
  */
 export interface SSECompletedEvent extends SSEBaseEvent {
-  event: "completed";
+  event: 'completed';
   data: {
     planId: string;
     plan: GeneratedPlan; // 完整行程数据
@@ -926,7 +917,7 @@ export interface SSECompletedEvent extends SSEBaseEvent {
  * 生成失败事件
  */
 export interface SSEErrorEvent extends SSEBaseEvent {
-  event: "error";
+  event: 'error';
   data: {
     code: ErrorCodeType;
     message: string; // 错误描述（面向用户）
@@ -985,20 +976,20 @@ export type SSEEvent =
 // ============================================================
 
 // 公共类型
-export * from "./common";
+export * from './common';
 
 // 业务类型
-export * from "./city";
-export * from "./plan";
-export * from "./transport";
-export * from "./weather";
-export * from "./auth";
+export * from './city';
+export * from './plan';
+export * from './transport';
+export * from './weather';
+export * from './auth';
 
 // 错误类型
-export * from "./errors";
+export * from './errors';
 
 // SSE 类型
-export * from "./sse";
+export * from './sse';
 ```
 
 ---

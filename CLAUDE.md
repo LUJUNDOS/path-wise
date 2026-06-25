@@ -12,22 +12,22 @@ PATH-WISE — 旅游攻略生成平台（全栈 TypeScript，pnpm monorepo）。
 
 ### 技术栈
 
-| 层级 | 技术 |
-|------|------|
-| 前端 | React 18 + Vite + shadcn/ui + Tailwind CSS + Zustand + TanStack Query + React Router 6.28 |
-| 后端 | Fastify 4.28+ + Prisma 5.15+ |
-| 数据库 | PostgreSQL 16 + Redis 7 |
-| LLM | DeepSeek / GLM-4 / Kimi / MiMo（via `ai` SDK） |
-| 外部 API | 高德地图 / 和风天气 / 12306 |
+| 层级     | 技术                                                                                      |
+| -------- | ----------------------------------------------------------------------------------------- |
+| 前端     | React 18 + Vite + shadcn/ui + Tailwind CSS + Zustand + TanStack Query + React Router 6.28 |
+| 后端     | Fastify 4.28+ + Prisma 5.15+                                                              |
+| 数据库   | PostgreSQL 16 + Redis 7                                                                   |
+| LLM      | DeepSeek / GLM-4 / Kimi / MiMo（via `ai` SDK）                                            |
+| 外部 API | 高德地图 / 和风天气 / 12306                                                               |
 
 ### 端口
 
-| 服务 | 端口 |
-|------|------|
-| 前端 (Vite) | 5173 |
-| API Server | 3000 |
-| PostgreSQL | 5432 |
-| Redis | 6379 |
+| 服务          | 端口 |
+| ------------- | ---- |
+| 前端 (Vite)   | 5173 |
+| API Server    | 3000 |
+| PostgreSQL    | 5432 |
+| Redis         | 6379 |
 | Prisma Studio | 5555 |
 
 ### 环境变量
@@ -38,11 +38,11 @@ PATH-WISE — 旅游攻略生成平台（全栈 TypeScript，pnpm monorepo）。
 
 ## 2. 目录约束
 
-| 约束 | 说明 |
-|------|------|
-| 禁止跨层引用 | `apps/web/` 不得直接引用 `apps/api/src/`，必须通过 `packages/shared/` 或 API |
-| 适配器隔离 | 第三方 API 封装放 `adapters/`，路由/服务层不直接调外部 API |
-| 类型优先 shared | 前后端共用类型放 `packages/shared/src/types/` |
+| 约束            | 说明                                                                         |
+| --------------- | ---------------------------------------------------------------------------- |
+| 禁止跨层引用    | `apps/web/` 不得直接引用 `apps/api/src/`，必须通过 `packages/shared/` 或 API |
+| 适配器隔离      | 第三方 API 封装放 `adapters/`，路由/服务层不直接调外部 API                   |
+| 类型优先 shared | 前后端共用类型放 `packages/shared/src/types/`                                |
 
 新增文件前先读 [CODE_MAP.md](CODE_MAP.md)，新增目录/模块后同步更新。
 
@@ -75,11 +75,11 @@ PATH-WISE — 旅游攻略生成平台（全栈 TypeScript，pnpm monorepo）。
 
 ## 4. 按需加载
 
-| 场景 | 读取文件 |
-|------|---------|
+| 场景                   | 读取文件                                                           |
+| ---------------------- | ------------------------------------------------------------------ |
 | 生成代码/提交/测试报告 | [.claude/rules/output-formats.md](.claude/rules/output-formats.md) |
-| 查找设计文档 | [.claude/rules/doc-index.md](.claude/rules/doc-index.md) |
-| 查找文件位置 | [CODE_MAP.md](CODE_MAP.md) |
+| 查找设计文档           | [.claude/rules/doc-index.md](.claude/rules/doc-index.md)           |
+| 查找文件位置           | [CODE_MAP.md](CODE_MAP.md)                                         |
 
 ---
 

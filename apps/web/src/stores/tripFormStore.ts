@@ -1,4 +1,4 @@
-import { create } from "zustand";
+import { create } from 'zustand';
 import type {
   Departure,
   Destination,
@@ -7,7 +7,7 @@ import type {
   BudgetLevel,
   PaceLevel,
   TimePeriod,
-} from "@path-wise/shared";
+} from '@path-wise/shared';
 
 interface TripFormState {
   // Form fields
@@ -40,9 +40,9 @@ interface TripFormState {
 }
 
 const DEFAULT_PREFERENCES: TripPreferences = {
-  budget: "comfort",
-  pace: "moderate",
-  accommodation: "chain_hotel",
+  budget: 'comfort',
+  pace: 'moderate',
+  accommodation: 'chain_hotel',
   dining: [],
   interests: [],
 };
@@ -52,10 +52,10 @@ const getToday = (): string => {
 };
 
 export const useTripFormStore = create<TripFormState>((set) => ({
-  departureCity: "",
+  departureCity: '',
   destinations: [],
   departureDate: getToday(),
-  timePeriod: "morning",
+  timePeriod: 'morning',
   travelers: { adults: 1, children: [], elders: 0 },
   preferences: { ...DEFAULT_PREFERENCES },
   showPreferences: false,
@@ -64,10 +64,7 @@ export const useTripFormStore = create<TripFormState>((set) => ({
 
   addDestination: (cityName: string, days = 2) =>
     set((state) => ({
-      destinations: [
-        ...state.destinations,
-        { cityName, days, transportTo: null },
-      ],
+      destinations: [...state.destinations, { cityName, days, transportTo: null }],
     })),
 
   removeDestination: (index: number) =>
@@ -77,9 +74,7 @@ export const useTripFormStore = create<TripFormState>((set) => ({
 
   updateDestinationDays: (index: number, days: number) =>
     set((state) => ({
-      destinations: state.destinations.map((d, i) =>
-        i === index ? { ...d, days } : d,
-      ),
+      destinations: state.destinations.map((d, i) => (i === index ? { ...d, days } : d)),
     })),
 
   reorderDestinations: (fromIndex: number, toIndex: number) =>
@@ -133,15 +128,14 @@ export const useTripFormStore = create<TripFormState>((set) => ({
       preferences: { ...state.preferences, dining },
     })),
 
-  togglePreferences: () =>
-    set((state) => ({ showPreferences: !state.showPreferences })),
+  togglePreferences: () => set((state) => ({ showPreferences: !state.showPreferences })),
 
   resetForm: () =>
     set({
-      departureCity: "",
+      departureCity: '',
       destinations: [],
       departureDate: getToday(),
-      timePeriod: "morning",
+      timePeriod: 'morning',
       travelers: { adults: 1, children: [], elders: 0 },
       preferences: { ...DEFAULT_PREFERENCES },
       showPreferences: false,
