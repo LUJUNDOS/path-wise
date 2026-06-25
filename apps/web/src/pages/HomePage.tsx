@@ -22,6 +22,7 @@ import { DatePicker } from '@/components/trip/DatePicker';
 import { TravelerCounter } from '@/components/trip/TravelerCounter';
 import { PreferencesPanel } from '@/components/trip/PreferencesPanel';
 import { ConflictWarningModal } from '@/components/trip/ConflictWarningModal';
+import { PageHeader } from '@/components/common/PageHeader';
 import { ThemeToggle } from '@/components/common/ThemeToggle';
 import { apiClient, ApiError } from '@/lib/apiClient';
 import { TRANSPORT_OPTIONS } from '@/lib/constants';
@@ -274,27 +275,28 @@ export default function HomePage() {
       {/* ════════════════════════════════════════
           PAGE CONTENT (below splash)
           ════════════════════════════════════════ */}
-      <header
+      <PageHeader
         className={cn(
-          'sticky top-0 z-40 border-b border-border/40 bg-background/80 backdrop-blur-lg transition-opacity duration-500',
+          'z-40 transition-opacity duration-500',
           phase >= 4 ? 'opacity-100' : 'opacity-0',
         )}
-      >
-        <div className="container mx-auto flex h-14 items-center justify-between px-4">
-          <div className="flex items-center gap-2.5">
+        left={
+          <>
             <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-hero shadow-sm">
               <Compass className="h-4.5 w-4.5 text-white" />
             </div>
             <span className="editorial-title text-lg">PATH–WISE</span>
-          </div>
-          <div className="flex items-center gap-1">
+          </>
+        }
+        right={
+          <>
             <ThemeToggle />
             <Button variant="ghost" size="sm" onClick={() => navigate('/history')}>
               我的攻略
             </Button>
-          </div>
-        </div>
-      </header>
+          </>
+        }
+      />
 
       {/* Hero bar */}
       <section

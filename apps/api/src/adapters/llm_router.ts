@@ -1,9 +1,15 @@
 /**
- * PATH-WISE · LLM 多模型路由器（MVP Stub）
+ * PATH-WISE · LLM 多模型路由器
  * 依据：docs/LLM调用最佳实践文档_v1.0.0.md + docs/API接口设计规格书_v1.0.0.md §12
  *
  * 职责：根据任务类型动态选择 LLM 提供商并调用
- * MVP 阶段返回 mock 文本，后续接入 DeepSeek / GLM-4 / Kimi / MiMo
+ *
+ * @mock routeLLM() 路由决策逻辑已完成；generateWithLLM() 返回虚构 JSON，
+ *       未实际调用 DeepSeek / GLM-4 / Kimi / MiMo API。
+ *       接入后需要：
+ *         1. 安装 ai SDK（@ai-sdk/deepseek, @ai-sdk/glm 等）
+ *         2. generateWithLLM() 中根据 provider 调用对应 SDK
+ *         3. 在 trip_generate.ts 中替换 mock 循环为 generateWithLLM() 调用
  */
 
 import type { LLMRouteConfig } from './llm_types.js';
@@ -51,13 +57,19 @@ export function routeLLM(config: LLMRouteConfig): LLMRouteDecision {
 }
 
 /**
- * 调用 LLM 生成文本（MVP mock）
+ * 调用 LLM 生成文本
+ *
+ * @mock 返回虚构 JSON，未实际调用 LLM API。
+ *       接入后根据 provider 调用对应 SDK（@ai-sdk/deepseek 等）。
  */
 export async function generateWithLLM(
   _prompt: string,
   _provider?: LLMProvider,
 ): Promise<{ text: string; tokens: { input: number; output: number }; costCNY: number }> {
-  // MVP: 返回 mock
+  // ══════════════════════════════════════════
+  // TODO(mvp): 替换为真实 LLM SDK 调用
+  // const { text } = await generateText({ model: providerModel(provider), prompt: _prompt })
+  // ══════════════════════════════════════════
   await new Promise((resolve) => setTimeout(resolve, 100));
 
   return {

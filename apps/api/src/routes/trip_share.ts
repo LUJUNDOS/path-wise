@@ -24,9 +24,10 @@ import {
   handleSuggestion,
   getShareCard,
 } from '../services/share_service.js';
+import { ErrorCode } from '@path-wise/shared';
 import { regenerateDay } from '../services/trip_service.js';
 import { createSSEStream } from '../utils/sseStream.js';
-import { successResponse } from '../utils/response.js';
+import { successResponse, errorResponse } from '../utils/response.js';
 
 export async function tripShareRoutes(fastify: FastifyInstance): Promise<void> {
   /**
@@ -62,7 +63,17 @@ export async function tripShareRoutes(fastify: FastifyInstance): Promise<void> {
       reply: FastifyReply,
     ) => {
       const { tripId } = request.params;
-      const shareToken = request.headers['x-share-token'] ?? 'anonymous';
+      const shareToken = request.headers['x-share-token'];
+      if (!shareToken) {
+        return reply
+          .status(401)
+          .send(
+            errorResponse(
+              ErrorCode.TOKEN_MISSING,
+              '缺少分享 Token，请在请求头中提供 x-share-token',
+            ),
+          );
+      }
       const result = await submitSuggestion(tripId, request.body, shareToken);
       return reply.status(201).send(successResponse(result));
     },

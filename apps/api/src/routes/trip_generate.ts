@@ -3,13 +3,19 @@
  * 接口：POST /trips/generate（SSE）, GET /trips/generate/status/{taskId}, DELETE /trips/generate/{taskId}
  * 依据：docs/API接口设计规格书_v1.0.0.md §4.2~4.4
  *
+ * @mock MVP 阶段：生成过程为 setTimeout + trip_service mock 数据，未接入 LLM 适配器。
+ *       后续需要将 L60-134 的逐城市逐天 mock 循环替换为 LLM 调用链路：
+ *         trip_service.generateDay() → llm_router.routeLLM() → llm_router.generateWithLLM()
+ *       接入后移除此 @mock 标记和 sse.send('warning', ...) 运行时提示。
+ *
  * SSE 事件流协议：
- *   connected → progress* → day_ready* → done
+ *   connected → warning(mock) → progress* → day_ready* → done
  *   异常时插入 error_event / warning
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import type { TripGenerateRequest, TripResponse, DayPlan } from '@path-wise/shared';
+import { ErrorCode } from '@path-wise/shared';
 import {
   validateTripRequest,
   generateMockDay,
@@ -33,7 +39,7 @@ export async function tripGenerateRoutes(fastify: FastifyInstance): Promise<void
     // 参数校验
     if (!body.destinations?.length) {
       return reply.status(400).send(
-        errorResponse(10004, 'destinations 不能为空', {
+        errorResponse(ErrorCode.DESTINATIONS_EMPTY, 'destinations 不能为空', {
           data: { field: 'destinations', reason: '至少需要 1 个目的地' },
         }),
       );
@@ -57,7 +63,18 @@ export async function tripGenerateRoutes(fastify: FastifyInstance): Promise<void
       message: '已开始生成，预计需要 30~60 秒',
     });
 
-    // 逐城市、逐天生成（MVP: mock 数据，后续接入 LLM）
+    // ══════════════════════════════════════════
+    // ⚠️  MVP Mock 运行时提示
+    // 接入 LLM 后移除本 warning
+    // ══════════════════════════════════════════
+    sse.send('warning', {
+      code: ErrorCode.WARNING_MOCK_MODE,
+      message:
+        '当前为展示版，行程数据为预设模板（非 AI 实时生成）。正式版将接入 DeepSeek / GLM-4 等 LLM 引擎。',
+    });
+
+    // 逐城市、逐天生成
+    // TODO(mvp): 替换为 trip_service.generateDay() → llm_router.routeLLM() → generateWithLLM()
     let dayIndex = 1;
     const days: DayPlan[] = [];
     const departureCity = body.departure.city;

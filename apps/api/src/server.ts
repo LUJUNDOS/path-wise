@@ -11,6 +11,7 @@ import cors from '@fastify/cors';
 import sensible from '@fastify/sensible';
 
 import { errorHandlerPlugin } from './plugins/error_handler.js';
+import { responseTimingPlugin } from './plugins/response_timing.js';
 import { envPlugin } from './plugins/env.js';
 import prismaPlugin from './plugins/prisma.js';
 
@@ -40,7 +41,10 @@ async function start(): Promise<void> {
   // ── 2. 全局错误处理器 ──
   await server.register(errorHandlerPlugin);
 
-  // ── 3. API 路由（prefix: /api/v1）──
+  // ── 3. 响应耗时注入（meta.processingTimeMs）──
+  await server.register(responseTimingPlugin);
+
+  // ── 4. API 路由（prefix: /api/v1）──
   await server.register(
     async (api) => {
       await api.register(tripGenerateRoutes);

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { MAX_DESTINATIONS, MAX_DAYS_PER_DESTINATION, TRANSPORT_OPTIONS } from '@/lib/constants';
 import { CitySelector } from './CitySelector';
+import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import type { TransportType } from '@path-wise/shared';
 
 export interface DestInfo {
@@ -36,6 +37,7 @@ export function DestinationInput({
   onReorder,
 }: DestinationInputProps) {
   const [showSelector, setShowSelector] = useState(false);
+  const [removeConfirmIndex, setRemoveConfirmIndex] = useState<number | null>(null);
   const canAdd = destinations.length < MAX_DESTINATIONS;
 
   const handleDaysChange = useCallback(
@@ -54,6 +56,13 @@ export function DestinationInput({
     },
     [onAdd],
   );
+
+  const handleConfirmRemove = useCallback(() => {
+    if (removeConfirmIndex !== null) {
+      onRemove(removeConfirmIndex);
+      setRemoveConfirmIndex(null);
+    }
+  }, [removeConfirmIndex, onRemove]);
 
   const excludeCities = destinations.map((d) => d.cityName);
 
@@ -138,7 +147,7 @@ export function DestinationInput({
                 {/* Remove */}
                 <button
                   className="flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive flex-shrink-0"
-                  onClick={() => onRemove(index)}
+                  onClick={() => setRemoveConfirmIndex(index)}
                   type="button"
                   aria-label={`移除${dest.cityName}`}
                 >
@@ -223,6 +232,23 @@ export function DestinationInput({
           共 {destinations.reduce((sum, d) => sum + d.days, 0)} 天
         </p>
       )}
+
+      <ConfirmDialog
+        open={removeConfirmIndex !== null}
+        onOpenChange={(open) => {
+          if (!open) setRemoveConfirmIndex(null);
+        }}
+        title="移除目的地"
+        description={
+          removeConfirmIndex !== null
+            ? `确定要移除「${destinations[removeConfirmIndex]?.cityName ?? ''}」吗？已填写的信息将丢失。`
+            : undefined
+        }
+        confirmText="移除"
+        cancelText="保留"
+        variant="destructive"
+        onConfirm={handleConfirmRemove}
+      />
     </div>
   );
 }

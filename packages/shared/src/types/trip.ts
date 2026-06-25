@@ -208,7 +208,7 @@ export interface GenerationProgress {
 
 /** 攻略导出请求参数 */
 export interface ExportOptions {
-  format: 'pdf' | 'image' | 'text';
+  format: 'pdf' | 'image' | 'text' | 'html';
   size?: string; // 图片尺寸，如 "1080x1920"
 }
 

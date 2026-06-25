@@ -8,9 +8,11 @@ import { DayPlanCard } from '@/components/itinerary/DayPlanCard';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { EmptyState } from '@/components/common/EmptyState';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
+import { PageHeader } from '@/components/common/PageHeader';
 import { ThemeToggle } from '@/components/common/ThemeToggle';
 import { apiClient, ApiError } from '@/lib/apiClient';
 import { formatCurrency } from '@/lib/format';
+import { buildExportHtml } from '@/lib/exportHtml';
 import type { TripResponse, DayPlan } from '@path-wise/shared';
 
 export default function TripResultPage() {
@@ -18,6 +20,7 @@ export default function TripResultPage() {
   const navigate = useNavigate();
   const [activeDay, setActiveDay] = useState('1');
   const [shareUrlCopied, setShareUrlCopied] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   const {
     data: trip,
@@ -48,6 +51,34 @@ export default function TripResultPage() {
     }
   }, [trip?.shareUrl]);
 
+  /**
+   * 导出攻略为 HTML 文件
+   *
+   * 先在浏览器上下载 HTML，用户可直接保存或打印为 PDF。
+   * 后续迭代：支持调用后端 /trips/{tripId}/export 生成真正的 PDF/图片。
+   */
+  const handleExport = useCallback(() => {
+    if (!trip) return;
+    setIsExporting(true);
+
+    try {
+      const html = buildExportHtml(trip);
+      const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${trip.title.replace(/[\\/:*?"<>|]/g, '_')}.html`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      /* export failed — silently ignore, button returns to idle */
+    } finally {
+      setIsExporting(false);
+    }
+  }, [trip]);
+
   // ── Loading ──
   if (isLoading) {
     return (
@@ -68,14 +99,14 @@ export default function TripResultPage() {
 
     return (
       <div className="min-h-screen bg-background">
-        <header className="sticky top-0 z-30 border-b border-border/40 bg-background/80 backdrop-blur-lg">
-          <div className="container mx-auto flex h-14 items-center px-4">
+        <PageHeader
+          left={
             <Button variant="ghost" size="sm" onClick={() => navigate('/')}>
               <ArrowLeft className="h-4 w-4 mr-1" />
               返回首页
             </Button>
-          </div>
-        </header>
+          }
+        />
         <main className="container mx-auto flex items-center justify-center py-12">
           <EmptyState
             title="加载失败"
@@ -97,15 +128,15 @@ export default function TripResultPage() {
     <ErrorBoundary>
       <div className="min-h-screen bg-background">
         {/* ── Header ── */}
-        <header className="sticky top-0 z-30 border-b border-border/40 bg-background/80 backdrop-blur-lg">
-          <div className="container mx-auto flex h-14 items-center justify-between px-4">
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" onClick={() => navigate('/')}>
-                <ArrowLeft className="h-4 w-4 mr-1" />
-                返回首页
-              </Button>
-            </div>
-            <div className="flex items-center gap-1">
+        <PageHeader
+          left={
+            <Button variant="ghost" size="sm" onClick={() => navigate('/')}>
+              <ArrowLeft className="h-4 w-4 mr-1" />
+              返回首页
+            </Button>
+          }
+          right={
+            <>
               <Button variant="ghost" size="sm" onClick={handleShare} className="rounded-full">
                 <Share2 className="h-4 w-4 mr-1" />
                 {shareUrlCopied ? '已复制链接' : '分享'}
@@ -113,17 +144,17 @@ export default function TripResultPage() {
               <Button
                 variant="ghost"
                 size="sm"
-                disabled
-                title="导出功能即将推出"
+                onClick={handleExport}
+                disabled={isExporting}
                 className="rounded-full"
               >
                 <Download className="h-4 w-4 mr-1" />
-                导出
+                {isExporting ? '导出中...' : '导出'}
               </Button>
               <ThemeToggle />
-            </div>
-          </div>
-        </header>
+            </>
+          }
+        />
 
         <main className="container mx-auto max-w-5xl px-4 py-8">
           {/* ── Trip Title ── */}

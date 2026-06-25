@@ -1,11 +1,13 @@
 import { useEffect, useCallback, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, AlertTriangle, Loader2, CheckCircle2, Clock, Compass } from 'lucide-react';
+import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DayPlanCard } from '@/components/itinerary/DayPlanCard';
+import { PageHeader } from '@/components/common/PageHeader';
 import { ThemeToggle } from '@/components/common/ThemeToggle';
 import { useSSE } from '@/hooks/useSSE';
 import { useGenerationStore } from '@/stores/generationStore';
@@ -66,6 +68,7 @@ export default function GeneratingPage() {
 
   const [tipIndex, setTipIndex] = useState(0);
   const [funIndex, setFunIndex] = useState(0);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
   const handleStart = useCallback(() => {
     const baseUrl = import.meta.env.VITE_API_BASE_URL ?? '/api/v1';
@@ -109,6 +112,10 @@ export default function GeneratingPage() {
   const currentFun = FUN_MESSAGES[funIndex];
 
   const handleCancel = useCallback(() => {
+    setShowCancelConfirm(true);
+  }, []);
+
+  const handleConfirmCancel = useCallback(() => {
     disconnect();
     navigate('/');
   }, [disconnect, navigate]);
@@ -127,9 +134,9 @@ export default function GeneratingPage() {
   return (
     <div className="min-h-screen bg-background">
       {/* ── Header ── */}
-      <header className="sticky top-0 z-30 border-b border-border/40 bg-background/80 backdrop-blur-lg">
-        <div className="container mx-auto flex h-14 items-center justify-between px-4">
-          <div className="flex items-center gap-3">
+      <PageHeader
+        left={
+          <>
             <Button
               variant="ghost"
               size="sm"
@@ -148,10 +155,10 @@ export default function GeneratingPage() {
               </div>
               <span className="editorial-title text-base">PATH–WISE</span>
             </div>
-          </div>
-          <ThemeToggle />
-        </div>
-      </header>
+          </>
+        }
+        right={<ThemeToggle />}
+      />
 
       <main className="container mx-auto max-w-2xl px-4 py-8 space-y-8">
         {/* ── Status Header ── */}
@@ -314,6 +321,19 @@ export default function GeneratingPage() {
             </Button>
           </div>
         )}
+
+        <ConfirmDialog
+          open={showCancelConfirm}
+          onOpenChange={setShowCancelConfirm}
+          title="取消生成"
+          description={`确定要取消生成吗？已生成 Day ${
+            store.completedDays.map((d) => d.dayIndex).join('、') || '—'
+          } 的内容将被保留。`}
+          confirmText="确认取消"
+          cancelText="继续生成"
+          variant="destructive"
+          onConfirm={handleConfirmCancel}
+        />
       </main>
     </div>
   );

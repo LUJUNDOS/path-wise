@@ -64,9 +64,7 @@ path-wise/
 ├── scripts/                          # 工具脚本
 ├── package.json                      # Monorepo 根配置
 ├── pnpm-workspace.yaml
-├── tsconfig.json                     # 根 TS 配置（strict: true）
-├── .code-map-snapshot.json           # 文件变更检测快照（自动维护）
-└── .claude/.code-map-changes.md      # 变更报告（SessionStart hook 生成）
+
 ```
 
 | 约束            | 说明                                                                                    |
@@ -152,7 +150,7 @@ path-wise/
 
 ---
 
-## 三、前端 · `apps/web/`（~150 行，骨架阶段）
+## 三、前端 · `apps/web/`（~3,500 行）
 
 ### 3.0 目录级指南
 
@@ -172,34 +170,35 @@ path-wise/
 
 ### 3.2 页面 · `src/pages/`
 
-| 文件                                                                  | 行   | 职责                                   |
-| --------------------------------------------------------------------- | ---- | -------------------------------------- |
-| [src/pages/HomePage.tsx](apps/web/src/pages/HomePage.tsx)             | 200+ | 首页：Hero 区域 + Glass morph 表单卡片 |
-| [src/pages/GeneratingPage.tsx](apps/web/src/pages/GeneratingPage.tsx) | 259  | SSE 进度页：骨架屏 + 品牌加载动画      |
-| [src/pages/TripResultPage.tsx](apps/web/src/pages/TripResultPage.tsx) | 210  | 攻略结果页：行程摘要侧栏               |
-| [src/pages/NotFoundPage.tsx](apps/web/src/pages/NotFoundPage.tsx)     | 26   | 404 页面                               |
-| [src/pages/ShareViewPage.tsx](apps/web/src/pages/ShareViewPage.tsx)   | 31   | 分享查看（占位）                       |
-| [src/pages/HistoryPage.tsx](apps/web/src/pages/HistoryPage.tsx)       | 30   | 历史攻略（占位）                       |
+| 文件                                                                  | 行   | 职责                                             |
+| --------------------------------------------------------------------- | ---- | ------------------------------------------------ |
+| [src/pages/HomePage.tsx](apps/web/src/pages/HomePage.tsx)             | 200+ | 首页：Hero 区域 + Glass morph 表单卡片           |
+| [src/pages/GeneratingPage.tsx](apps/web/src/pages/GeneratingPage.tsx) | 335  | SSE 进度页：骨架屏 + 品牌加载动画 + 取消确认弹窗 |
+| [src/pages/TripResultPage.tsx](apps/web/src/pages/TripResultPage.tsx) | 210  | 攻略结果页：行程摘要侧栏                         |
+| [src/pages/NotFoundPage.tsx](apps/web/src/pages/NotFoundPage.tsx)     | 26   | 404 页面                                         |
+| [src/pages/ShareViewPage.tsx](apps/web/src/pages/ShareViewPage.tsx)   | 31   | 分享查看（占位）                                 |
+| [src/pages/HistoryPage.tsx](apps/web/src/pages/HistoryPage.tsx)       | 30   | 历史攻略（占位）                                 |
 
 ### 3.3 组件 · `src/components/`
 
-| 文件                                                                                       | 行   | 职责                                            |
-| ------------------------------------------------------------------------------------------ | ---- | ----------------------------------------------- |
-| [common/ErrorBoundary.tsx](apps/web/src/components/common/ErrorBoundary.tsx)               | 44   | ErrorBoundary                                   |
-| [common/LoadingSpinner.tsx](apps/web/src/components/common/LoadingSpinner.tsx)             | 23   | 加载旋转器                                      |
-| [common/EmptyState.tsx](apps/web/src/components/common/EmptyState.tsx)                     | 29   | 空状态                                          |
-| [common/ThemeToggle.tsx](apps/web/src/components/common/ThemeToggle.tsx)                   | 28   | 日/夜模式切换按钮（新增）                       |
-| [trip/CitySelector.tsx](apps/web/src/components/trip/CitySelector.tsx)                     | 219  | 城市选择器                                      |
-| [trip/DestinationInput.tsx](apps/web/src/components/trip/DestinationInput.tsx)             | 120  | 目的地输入                                      |
-| [trip/TravelerCounter.tsx](apps/web/src/components/trip/TravelerCounter.tsx)               | 159  | 人数选择                                        |
-| [trip/PreferencesPanel.tsx](apps/web/src/components/trip/PreferencesPanel.tsx)             | 204  | 偏好面板                                        |
-| [trip/DatePicker.tsx](apps/web/src/components/trip/DatePicker.tsx)                         | 78   | 日期选择                                        |
-| [trip/ConflictWarningModal.tsx](apps/web/src/components/trip/ConflictWarningModal.tsx)     | 117  | 冲突警告弹窗                                    |
-| [itinerary/DayPlanCard.tsx](apps/web/src/components/itinerary/DayPlanCard.tsx)             | 365  | 日行程卡片                                      |
-| [itinerary/TimelineItemRow.tsx](apps/web/src/components/itinerary/TimelineItemRow.tsx)     | 110  | 时间线行                                        |
-| [itinerary/TransportInfoCard.tsx](apps/web/src/components/itinerary/TransportInfoCard.tsx) | —    | 交通信息卡片                                    |
-| [itinerary/AccommodationCard.tsx](apps/web/src/components/itinerary/AccommodationCard.tsx) | —    | 住宿信息卡片                                    |
-| [ui/\*.tsx](apps/web/src/components/ui/)                                                   | ~500 | shadcn/ui 组件（14 个，含 tooltip & separator） |
+| 文件                                                                                       | 行   | 职责                                                   |
+| ------------------------------------------------------------------------------------------ | ---- | ------------------------------------------------------ |
+| [common/ErrorBoundary.tsx](apps/web/src/components/common/ErrorBoundary.tsx)               | 44   | ErrorBoundary                                          |
+| [common/LoadingSpinner.tsx](apps/web/src/components/common/LoadingSpinner.tsx)             | 23   | 加载旋转器                                             |
+| [common/EmptyState.tsx](apps/web/src/components/common/EmptyState.tsx)                     | 29   | 空状态                                                 |
+| [common/ThemeToggle.tsx](apps/web/src/components/common/ThemeToggle.tsx)                   | 28   | 日/夜模式切换按钮                                      |
+| [common/ConfirmDialog.tsx](apps/web/src/components/common/ConfirmDialog.tsx)               | 92   | 通用确认对话框，用于删除目的地、取消生成等二次确认操作 |
+| [trip/CitySelector.tsx](apps/web/src/components/trip/CitySelector.tsx)                     | 219  | 城市选择器                                             |
+| [trip/DestinationInput.tsx](apps/web/src/components/trip/DestinationInput.tsx)             | 255  | 目的地输入（含移除确认弹窗）                           |
+| [trip/TravelerCounter.tsx](apps/web/src/components/trip/TravelerCounter.tsx)               | 159  | 人数选择                                               |
+| [trip/PreferencesPanel.tsx](apps/web/src/components/trip/PreferencesPanel.tsx)             | 204  | 偏好面板                                               |
+| [trip/DatePicker.tsx](apps/web/src/components/trip/DatePicker.tsx)                         | 78   | 日期选择                                               |
+| [trip/ConflictWarningModal.tsx](apps/web/src/components/trip/ConflictWarningModal.tsx)     | 117  | 冲突警告弹窗                                           |
+| [itinerary/DayPlanCard.tsx](apps/web/src/components/itinerary/DayPlanCard.tsx)             | 365  | 日行程卡片                                             |
+| [itinerary/TimelineItemRow.tsx](apps/web/src/components/itinerary/TimelineItemRow.tsx)     | 110  | 时间线行                                               |
+| [itinerary/TransportInfoCard.tsx](apps/web/src/components/itinerary/TransportInfoCard.tsx) | —    | 交通信息卡片                                           |
+| [itinerary/AccommodationCard.tsx](apps/web/src/components/itinerary/AccommodationCard.tsx) | —    | 住宿信息卡片                                           |
+| [ui/\*.tsx](apps/web/src/components/ui/)                                                   | ~500 | shadcn/ui 组件（14 个，含 tooltip & separator）        |
 
 ### 3.4 Hooks · `src/hooks/`
 
@@ -276,17 +275,7 @@ path-wise/
 
 ---
 
-## 七、工具脚本 · `scripts/`
-
-| 文件                                           | 职责                                                                                           |
-| ---------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| [sync-code-map.ps1](scripts/sync-code-map.ps1) | SessionStart hook 调用：检测 `docs/`、`apps/` 文件增删改 → 写入 `.claude/.code-map-changes.md` |
-| [prisma-studio.sh](scripts/prisma-studio.sh)   | Prisma Studio 启动脚本（Unix）                                                                 |
-| [prisma-studio.ps1](scripts/prisma-studio.ps1) | Prisma Studio 启动脚本（Windows）                                                              |
-
----
-
-## 八、设计文档 · `docs/`（37 份）
+## 七、设计文档 · `docs/`（37 份）
 
 ### 架构与需求
 
@@ -345,7 +334,7 @@ path-wise/
 
 ---
 
-## 九、Claude Code 配置 · `.claude/`
+## 八、Claude Code 配置 · `.claude/`
 
 | 路径                                                                 | 说明                                                  |
 | -------------------------------------------------------------------- | ----------------------------------------------------- |
@@ -367,7 +356,7 @@ path-wise/
 
 ---
 
-## 十、项目统计
+## 九、项目统计
 
 | 指标         | 数值                          |
 | ------------ | ----------------------------- |

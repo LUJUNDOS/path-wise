@@ -29,6 +29,7 @@ export enum ErrorCode {
   WARNING_POI_HOURS_UNVERIFIED = 30001,
   WARNING_TIGHT_SCHEDULE = 30002,
   WARNING_BUDGET_OVERFLOW = 30003,
+  WARNING_MOCK_MODE = 30004, // 展示版 mock 模式提示
 
   // 外部 API 错误（4xxxx）
   AMAP_API_FAILED = 40001,
@@ -75,6 +76,7 @@ export const ErrorMessageMap: Record<number, string> = {
   [ErrorCode.WARNING_POI_HOURS_UNVERIFIED]: '部分景点营业时间未确认',
   [ErrorCode.WARNING_TIGHT_SCHEDULE]: '行程安排较紧',
   [ErrorCode.WARNING_BUDGET_OVERFLOW]: '预算可能超支',
+  [ErrorCode.WARNING_MOCK_MODE]: '当前为展示版，数据为预设模板',
 
   [ErrorCode.AMAP_API_FAILED]: '高德地图服务异常',
   [ErrorCode.TRAIN_API_UNAVAILABLE]: '12306 接口暂不可用',

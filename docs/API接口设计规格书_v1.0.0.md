@@ -79,19 +79,20 @@ Content-Type：application/json（SSE 除外�?
 
 | 模块       | 接口数量 | 说明                             |
 | ---------- | -------- | -------------------------------- |
-| 攻略生成   | 3        | 核心接口，含 SSE 流式            |
+| 攻略生成   | 4        | 核心接口，含 SSE 流式 + 校验     |
 | 攻略管理   | 5        | 查询 / 修改 / 删除 / 导出        |
-| 交通查�?   | 2        | 大交�?+ 市内路线                 |
+| 交通查询   | 2        | 大交通 + 市内路线                |
 | 住宿推荐   | 2        | 查询 + 预约                      |
-| 城市知识�? | 2        | POI 搜索 + 详情                  |
+| 城市知识库 | 2        | POI 搜索 + 详情                  |
 | 用户偏好   | 2        | 保存 / 读取偏好                  |
 | 分享与协作 | 8        | 分享 Token + 修改建议 + 重新生成 |
-| **合计**   | **24**   | MVP 阶段                         |
+| **合计**   | **25**   | MVP 阶段                         |
 
 ### 2.2 接口速查�?
 
 | 方法   | 路径                                       | 说明                     | 流式  | 缓存     |
 | ------ | ------------------------------------------ | ------------------------ | ----- | -------- |
+| POST   | /trips/validate                            | 用户输入校验与冲突检测   | ❌    | ❌       |
 | POST   | /trips/generate                            | 发起攻略生成任务         | ✅SSE | ❌       |
 | GET    | /trips/generate/status/{taskId}            | 轮询生成进度（降级方案） | ❌    | ❌       |
 | DELETE | /trips/generate/{taskId}                   | 取消生成任务             | ❌    | ❌       |
@@ -107,6 +108,7 @@ Content-Type：application/json（SSE 除外�?
 | POST   | /accommodation/booking                     | 获取预约链接             | ❌    | ❌       |
 | GET    | /cities/{cityName}/pois                    | 搜索城市 POI             | ❌    | ✅ 24h   |
 | GET    | /cities/{cityName}/pois/{poiId}            | POI 详情                 | ❌    | ✅ 24h   |
+| GET    | /cities                                    | 获取支持城市列表         | ❌    | ✅ 24h   |
 | GET    | /users/{userId}/preferences                | 读取用户偏好             | ❌    | ✅ 1h    |
 | PUT    | /users/{userId}/preferences                | 保存用户偏好             | ❌    | ❌       |
 | POST   | /trips/{tripId}/share                      | 生成分享 Token           | ❌    | ❌       |
