@@ -1,0 +1,293 @@
+///////////////////////////////////////////////////////////////////////////////
+// PATH-WISE · 数据库 Schema
+// 依据：docs/数据库设计规格书_v1.0.0.md §3（2026-06-19 v1.0.3）
+//
+// MVP 阶段表集合（9 张）：
+//   users / trips / day_plans / timeline_items / hotel_recommendations
+//   cities / generation_tasks / trip_share_links / llm_call_logs
+//
+// 未在 Schema 中表达的设计约束（需应用层或原始 SQL 补充）：
+//   - CHECK 约束（如 total_days > 0 AND <= 30）
+//   - 部分索引（WHERE deleted_at IS NULL）
+//   - llm_call_logs 按月分区
+//   - users.phone / email 至少一个非空（应用层校验）
+///////////////////////////////////////////////////////////////////////////////
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// 1. users — 用户账户表
+// 设计出处：§3.1
+///////////////////////////////////////////////////////////////////////////////
+
+model User {
+  id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  phone                String?   @unique @db.VarChar(20)
+  email                String?   @unique @db.VarChar(255)
+  nickname             String    @default("旅行者") @db.VarChar(64)
+  avatarUrl            String?   @map("avatar_url") @db.Text
+  defaultBudgetLevel   String?   @default("comfort") @map("default_budget_level") @db.VarChar(20)
+  defaultPaceLevel     String?   @default("moderate") @map("default_pace_level") @db.VarChar(20)
+  defaultAccommodation String?   @default("any") @map("default_accommodation") @db.VarChar(30)
+  status               String    @default("active") @db.VarChar(20)
+  lastLoginAt          DateTime? @map("last_login_at") @db.Timestamptz()
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz()
+  deletedAt            DateTime? @map("deleted_at") @db.Timestamptz()
+
+  trips Trip[]
+  generationTasks GenerationTask[]
+
+  @@map("users")
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// 2. trips — 攻略主表
+// 设计出处：§3.2
+// 用户可修改字段仅限 title、is_public，其余由系统自动维护
+///////////////////////////////////////////////////////////////////////////////
+
+model Trip {
+  id                    String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId                String    @map("user_id") @db.Uuid
+  title                 String    @db.VarChar(200)
+  status                String    @default("generating") @db.VarChar(30)
+  requestSnapshot       Json      @map("request_snapshot") @db.JsonB
+  departureCity         String    @map("departure_city") @db.VarChar(50)
+  totalDays             Int       @map("total_days") @db.SmallInt
+  startDate             DateTime  @map("start_date") @db.Date
+  endDate               DateTime  @map("end_date") @db.Date
+  totalEstimatedCostCny Decimal?  @map("total_estimated_cost_cny") @db.Decimal(10, 2)
+  budgetBreakdown       Json?     @map("budget_breakdown") @db.JsonB
+  llmProvider           String?   @map("llm_provider") @db.VarChar(30)
+  generationTimeMs      Int?      @map("generation_time_ms")
+  incompleteReason      String?   @map("incomplete_reason") @db.Text
+  isPublic              Boolean   @default(false) @map("is_public")
+  viewCount             Int       @default(0) @map("view_count")
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz()
+  deletedAt             DateTime? @map("deleted_at") @db.Timestamptz()
+
+  user                  User      @relation(fields: [userId], references: [id])
+  dayPlans              DayPlan[]
+  hotelRecommendations  HotelRecommendation[]
+  tripShareLinks        TripShareLink[]
+  generationTasks       GenerationTask[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([startDate])
+  @@map("trips")
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// 3. day_plans — 日计划表
+// 设计出处：§3.3
+///////////////////////////////////////////////////////////////////////////////
+
+model DayPlan {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tripId        String    @map("trip_id") @db.Uuid
+  dayIndex      Int       @map("day_index") @db.SmallInt
+  date          DateTime  @db.Date
+  dayType       String    @map("day_type") @db.VarChar(30)
+  cityName      String    @map("city_name") @db.VarChar(50)
+  title         String    @db.VarChar(200)
+  transportInfo Json?     @map("transport_info") @db.JsonB
+  energySummary Json?     @map("energy_summary") @db.JsonB
+  tips          String[]
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz()
+
+  trip                Trip              @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  timelineItems       TimelineItem[]
+  hotelRecommendations HotelRecommendation[]
+
+  @@unique([tripId, dayIndex])
+  @@index([tripId])
+  @@map("day_plans")
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// 4. timeline_items — 时间轴条目表
+// 设计出处：§3.4
+///////////////////////////////////////////////////////////////////////////////
+
+model TimelineItem {
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  dayPlanId            String   @map("day_plan_id") @db.Uuid
+  sortOrder            Int      @default(0) @map("sort_order") @db.SmallInt
+  itemType             String   @map("item_type") @db.VarChar(30)
+  title                String   @db.VarChar(200)
+  description          String?  @db.Text
+  location             Json?    @db.JsonB
+  startTime            String   @map("start_time") @db.VarChar(5)
+  endTime              String   @map("end_time") @db.VarChar(5)
+  estimatedDurationMin Int      @map("estimated_duration_min") @db.SmallInt
+  estimatedCostCny     Decimal  @default(0) @map("estimated_cost_cny") @db.Decimal(8, 2)
+  energyLevel          String   @default("MEDIUM") @map("energy_level") @db.VarChar(10)
+  bookingRequired      Boolean  @default(false) @map("booking_required")
+  bookingUrl           String?  @map("booking_url") @db.Text
+  deepLinks            Json?    @map("deep_links") @db.JsonB
+  alternatives         Json?    @default("[]") @db.JsonB
+  amapPoiId            String?  @map("amap_poi_id") @db.VarChar(50)
+  isUserModified       Boolean  @default(false) @map("is_user_modified")
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt            DateTime @updatedAt @map("updated_at") @db.Timestamptz()
+
+  dayPlan DayPlan @relation(fields: [dayPlanId], references: [id], onDelete: Cascade)
+
+  @@index([dayPlanId])
+  @@index([itemType])
+  @@map("timeline_items")
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// 5. hotel_recommendations — 住宿推荐表
+// 设计出处：§3.5
+///////////////////////////////////////////////////////////////////////////////
+
+model HotelRecommendation {
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tripId               String   @map("trip_id") @db.Uuid
+  dayPlanId            String   @map("day_plan_id") @db.Uuid
+  cityName             String   @map("city_name") @db.VarChar(50)
+  checkInDate          DateTime @map("check_in_date") @db.Date
+  checkOutDate         DateTime @map("check_out_date") @db.Date
+  nights               Int      @db.SmallInt
+  primaryOption        Json     @map("primary_option") @db.JsonB
+  backupOption         Json     @map("backup_option") @db.JsonB
+  recommendationReason String?  @map("recommendation_reason") @db.Text
+  userChoice           String?  @default("primary") @map("user_choice") @db.VarChar(20)
+  customHotel          Json?    @map("custom_hotel") @db.JsonB
+  estimatedTotalCny    Decimal? @map("estimated_total_cny") @db.Decimal(10, 2)
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt            DateTime @updatedAt @map("updated_at") @db.Timestamptz()
+
+  trip    Trip    @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  dayPlan DayPlan @relation(fields: [dayPlanId], references: [id])
+
+  @@unique([tripId, cityName])
+  @@index([tripId])
+  @@map("hotel_recommendations")
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// 6. cities — 城市注册表
+// 设计出处：§3.6
+///////////////////////////////////////////////////////////////////////////////
+
+model City {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nameZh        String    @unique @map("name_zh") @db.VarChar(50)
+  nameEn        String    @map("name_en") @db.VarChar(100)
+  province      String    @db.VarChar(50)
+  amapCityCode  String    @map("amap_city_code") @db.VarChar(10)
+  amapAdcode    String    @map("amap_adcode") @db.VarChar(10)
+  kbStatus      String    @default("unavailable") @map("kb_status") @db.VarChar(20)
+  kbVersion     String?   @map("kb_version") @db.VarChar(20)
+  kbLastUpdated DateTime? @map("kb_last_updated") @db.Date
+  isHubCity     Boolean   @default(false) @map("is_hub_city")
+  typicalDays   Int?      @default(3) @map("typical_days") @db.SmallInt
+  centerLat     Decimal?  @map("center_lat") @db.Decimal(10, 7)
+  centerLng     Decimal?  @map("center_lng") @db.Decimal(10, 7)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz()
+
+  @@map("cities")
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// 7. generation_tasks — 攻略生成任务日志表
+// 设计出处：§3.7
+///////////////////////////////////////////////////////////////////////////////
+
+model GenerationTask {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tripId           String    @map("trip_id") @db.Uuid
+  userId           String    @map("user_id") @db.Uuid
+  status           String    @default("pending") @db.VarChar(20)
+  llmProvider      String?   @map("llm_provider") @db.VarChar(30)
+  llmModel         String?   @map("llm_model") @db.VarChar(50)
+  fallbackChain    String[]  @map("fallback_chain")
+  inputTokens      Int?      @default(0) @map("input_tokens")
+  outputTokens     Int?      @default(0) @map("output_tokens")
+  estimatedCostCny Decimal?  @map("estimated_cost_cny") @db.Decimal(8, 4)
+  amapApiCalls     Int?      @default(0) @map("amap_api_calls")
+  startedAt        DateTime? @map("started_at") @db.Timestamptz()
+  completedAt      DateTime? @map("completed_at") @db.Timestamptz()
+  totalTimeMs      Int?      @map("total_time_ms")
+  steps            Json?     @default("[]") @db.JsonB
+  errorCode        String?   @map("error_code") @db.VarChar(50)
+  errorMessage     String?   @map("error_message") @db.Text
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+
+  trip         Trip          @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  user         User          @relation(fields: [userId], references: [id])
+  llmCallLogs  LlmCallLog[]
+
+  @@index([tripId])
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt(sort: Desc)])
+  @@map("generation_tasks")
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// 8. trip_share_links — 攻略分享链接表
+// 设计出处：§3.8
+///////////////////////////////////////////////////////////////////////////////
+
+model TripShareLink {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tripId     String    @map("trip_id") @db.Uuid
+  shareToken String    @unique @map("share_token") @db.VarChar(16)
+  isActive   Boolean   @default(true) @map("is_active")
+  expiresAt  DateTime? @map("expires_at") @db.Timestamptz()
+  password   String?   @db.VarChar(64)
+  viewCount  Int       @default(0) @map("view_count")
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz()
+
+  trip Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@index([shareToken])
+  @@map("trip_share_links")
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// 9. llm_call_logs — LLM 调用日志表（按月分区）
+// 设计出处：§3.9
+// 注意：Prisma 不支持声明式分区，需在迁移后通过原始 SQL 创建分区
+///////////////////////////////////////////////////////////////////////////////
+
+model LlmCallLog {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  generationTaskId  String?  @map("generation_task_id") @db.Uuid
+  userId            String?  @map("user_id") @db.Uuid
+  provider          String   @db.VarChar(30)
+  model             String   @db.VarChar(50)
+  taskType          String   @map("task_type") @db.VarChar(50)
+  inputTokens       Int      @default(0) @map("input_tokens")
+  outputTokens      Int      @default(0) @map("output_tokens")
+  costCny           Decimal  @default(0) @map("cost_cny") @db.Decimal(8, 6)
+  responseTimeMs    Int      @map("response_time_ms")
+  status            String   @db.VarChar(20)
+  errorMessage      String?  @map("error_message") @db.Text
+  fallbackFrom      String?  @map("fallback_from") @db.VarChar(30)
+  calledAt          DateTime @default(now()) @map("called_at") @db.Timestamptz()
+
+  generationTask GenerationTask? @relation(fields: [generationTaskId], references: [id], onDelete: NoAction)
+
+  @@index([provider, calledAt(sort: Desc)])
+  @@index([generationTaskId])
+  @@index([status, calledAt(sort: Desc)])
+  @@map("llm_call_logs")
+}

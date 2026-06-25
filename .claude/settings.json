@@ -1,0 +1,34 @@
+{
+  "enabledPlugins": {
+    "typescript-lsp@claude-plugins-official": true
+  },
+  "env": {
+    "CLAUDE_CODE_NEW_INIT": "1"
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PROJECT_DIR}/scripts/sync-code-map.ps1\" -ProjectDir \"${CLAUDE_PROJECT_DIR}\"",
+            "statusMessage": "🔍 检查 docs/ & apps/ 文件变更..."
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=$(node -e \"const r=require('fs').readFileSync(0,'utf8');try{const j=JSON.parse(r);const f=j.tool_input?.file_path||j.tool_response?.filePath;if(f)process.stdout.write(f)}\"catch(e){}); [ -n \"$f\" ] && npx prettier --write \"$f\" 2>/dev/null; true",
+            "statusMessage": "Formatting with Prettier..."
+          }
+        ]
+      }
+    ]
+  }
+}
