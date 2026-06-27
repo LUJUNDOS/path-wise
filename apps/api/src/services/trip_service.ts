@@ -1432,5 +1432,138 @@ export function generateMockDay(
   };
 }
 
+// ─────────────────────────────────────────────
+// 真实 LLM 生成（带 mock 降级）
+// ─────────────────────────────────────────────
+
+/**
+ * 单日行程生成参数
+ */
+export interface GenerateDayParams {
+  dayIndex: number;
+  cityName: string;
+  isFirstDayOfCity: boolean;
+  daysInCity: number;
+  isLastDay: boolean;
+  preferences: TripGenerateRequest['preferences'];
+  travelers: TripGenerateRequest['travelers'];
+  transport: Record<string, unknown> | null;
+  previousDays: DayPlan[];
+  /** 强制指定 LLM 提供商（用于测试），默认自动路由 */
+  forceProvider?: import('../adapters/llm_router.js').LLMProvider;
+}
+
+/**
+ * 通过 LLM 生成单天行程，LLM 失败时降级到 mock
+ *
+ * 流程：
+ *   1. 获取城市知识库数据（从 CITY_DATA）
+ *   2. 构建 Prompt（prompt.service.ts）
+ *   3. 路由选择 LLM 提供商（llm_router.ts）
+ *   4. 调用 LLM 生成（带降级链）
+ *   5. 解析 JSON 返回 DayPlan
+ *   6. LLM 失败时降级到 generateMockDay()
+ *
+ * @param params - 生成参数
+ * @returns DayPlan
+ */
+export async function generateDay(params: GenerateDayParams): Promise<DayPlan> {
+  const {
+    dayIndex,
+    cityName,
+    isFirstDayOfCity,
+    daysInCity,
+    preferences,
+    travelers,
+    transport,
+    previousDays,
+    forceProvider,
+  } = params;
+
+  // 计算日期
+  const baseDate = new Date(2026, 6, 1); // 2026-07-01
+  const date = new Date(baseDate);
+  date.setDate(baseDate.getDate() + dayIndex - 1);
+  const dateStr = date.toISOString().slice(0, 10);
+
+  // 获取城市知识库数据
+  const cityData = CITY_DATA[cityName] ?? null;
+
+  // 动态导入 Prompt 服务（避免循环依赖）
+  const { buildSystemPrompt, buildDayGenerationPrompt } = await import('./prompt.service.js');
+  const { routeLLM, callWithFallback } = await import('../adapters/llm_router.js');
+
+  // 构建 Prompt
+  const systemPrompt = buildSystemPrompt();
+  const userPrompt = buildDayGenerationPrompt({
+    cityName,
+    dayIndex,
+    date: dateStr,
+    isFirstDayOfCity,
+    daysInCity,
+    preferences,
+    travelers,
+    transport,
+    cityData: cityData as unknown as Record<string, unknown> | null,
+    previousDays,
+  });
+
+  try {
+    // 路由选择 LLM
+    const estimatedTokens = userPrompt.length + systemPrompt.length; // 粗略估算
+    const routeDecision = routeLLM({
+      taskType: 'trip_generation',
+      inputTokens: estimatedTokens > 100000 ? estimatedTokens : undefined,
+      costPriority: preferences.budget === 'economy' ? 'low' : 'normal',
+      speedPriority: 'normal',
+    });
+
+    const provider = forceProvider ?? routeDecision.provider;
+
+    // 调用 LLM（带降级链）
+    const result = await callWithFallback(userPrompt, systemPrompt, provider);
+
+    // 解析 JSON
+    const dayPlan = JSON.parse(result.text) as DayPlan;
+
+    // 确保必填字段和索引正确
+    dayPlan.dayIndex = dayIndex;
+    dayPlan.date = dateStr;
+    dayPlan.cityName = cityName;
+    dayPlan.isFirstDayOfCity = isFirstDayOfCity;
+
+    // 如果不是城市第一天，不保留住宿信息
+    if (!isFirstDayOfCity) {
+      dayPlan.accommodation = null;
+    }
+
+    // timeline 中每个 item 确保有 estimatedDuration
+    for (const item of dayPlan.timeline) {
+      item.id = item.id ?? `item_${dayIndex}_${Date.now().toString(36)}`;
+      item.estimatedDuration =
+        item.estimatedDuration ??
+        Math.max(30, timeToMinutes(item.endTime) - timeToMinutes(item.startTime));
+    }
+
+    return dayPlan;
+  } catch {
+    // LLM 失败，降级到 mock
+    return generateMockDay(
+      dayIndex,
+      cityName,
+      isFirstDayOfCity,
+      daysInCity,
+      preferences,
+      transport,
+    );
+  }
+}
+
+/** HH:MM 转分钟数 */
+function timeToMinutes(time: string): number {
+  const [h, m] = time.split(':').map(Number);
+  return h * 60 + (m || 0);
+}
+
 /** 获取两个城市间的 mock 交通 */
 export { getMockTransport };

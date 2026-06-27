@@ -3,14 +3,9 @@
  * 接口：POST /trips/generate（SSE）, GET /trips/generate/status/{taskId}, DELETE /trips/generate/{taskId}
  * 依据：docs/API接口设计规格书_v1.0.0.md §4.2~4.4
  *
- * @mock MVP 阶段：生成过程为 setTimeout + trip_service mock 数据，未接入 LLM 适配器。
- *       后续需要将 L60-134 的逐城市逐天 mock 循环替换为 LLM 调用链路：
- *         trip_service.generateDay() → llm_router.routeLLM() → llm_router.generateWithLLM()
- *       接入后移除此 @mock 标记和 sse.send('warning', ...) 运行时提示。
- *
  * SSE 事件流协议：
- *   connected → warning(mock) → progress* → day_ready* → done
- *   异常时插入 error_event / warning
+ *   connected → progress* → day_ready* → done
+ *   异常时插入 error 事件
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
@@ -18,15 +13,12 @@ import type { TripGenerateRequest, TripResponse, DayPlan } from '@path-wise/shar
 import { ErrorCode } from '@path-wise/shared';
 import {
   validateTripRequest,
-  generateMockDay,
+  generateDay,
   saveTrip,
   getMockTransport,
 } from '../services/trip_service.js';
 import { createSSEStream } from '../utils/sseStream.js';
 import { successResponse, errorResponse } from '../utils/response.js';
-
-/** 生成模拟耗时（ms），替代 LLM 调用 */
-const MOCK_DAY_DELAY_MS = 500;
 
 export async function tripGenerateRoutes(fastify: FastifyInstance): Promise<void> {
   /**
@@ -58,101 +50,120 @@ export async function tripGenerateRoutes(fastify: FastifyInstance): Promise<void
 
     sse.send('connected', {
       taskId,
-      estimatedTotalSeconds: Math.max(30, 5 + totalDays * 5),
-      totalSteps: 5 + totalDays,
-      message: '已开始生成，预计需要 30~60 秒',
+      estimatedTotalSeconds: Math.max(30, totalDays * 20),
+      totalSteps: totalDays,
+      message: '已开始生成，正在通过 AI 为你规划行程...',
     });
 
-    // ══════════════════════════════════════════
-    // ⚠️  MVP Mock 运行时提示
-    // 接入 LLM 后移除本 warning
-    // ══════════════════════════════════════════
-    sse.send('warning', {
-      code: ErrorCode.WARNING_MOCK_MODE,
-      message:
-        '当前为展示版，行程数据为预设模板（非 AI 实时生成）。正式版将接入 DeepSeek / GLM-4 等 LLM 引擎。',
-    });
+    // 逐城市、逐天生成（通过 LLM，失败了降级到 mock）
+    try {
+      let dayIndex = 1;
+      const days: DayPlan[] = [];
+      const departureCity = body.departure.city;
 
-    // 逐城市、逐天生成
-    // TODO(mvp): 替换为 trip_service.generateDay() → llm_router.routeLLM() → generateWithLLM()
-    let dayIndex = 1;
-    const days: DayPlan[] = [];
-    const departureCity = body.departure.city;
-    for (let ci = 0; ci < body.destinations.length; ci++) {
-      const dest = body.destinations[ci];
-      const prevCity = ci === 0 ? departureCity : body.destinations[ci - 1].cityName;
-      const transport =
-        ci === 0
-          ? getMockTransport(departureCity, dest.cityName)
-          : getMockTransport(prevCity, dest.cityName);
-      for (let d = 0; d < dest.days; d++) {
-        await new Promise((r) => setTimeout(r, MOCK_DAY_DELAY_MS));
+      for (let ci = 0; ci < body.destinations.length; ci++) {
+        const dest = body.destinations[ci];
+        const prevCity = ci === 0 ? departureCity : body.destinations[ci - 1].cityName;
+        const transport =
+          ci === 0
+            ? getMockTransport(departureCity, dest.cityName)
+            : getMockTransport(prevCity, dest.cityName);
 
-        sse.send('progress', {
-          step: dayIndex,
-          totalSteps: totalDays,
-          percent: Math.round((dayIndex / totalDays) * 100),
-          message: `正在为 ${dest.cityName} 第 ${d + 1} 天安排行程...`,
-          subMessage: `已选择 ${dest.cityName} 热门景点`,
-          estimatedRemainingSeconds: Math.max(5, 45 - dayIndex * 5),
-        });
+        for (let d = 0; d < dest.days; d++) {
+          sse.send('progress', {
+            step: dayIndex,
+            totalSteps: totalDays,
+            percent: Math.round((dayIndex / totalDays) * 100),
+            message: `正在为 ${dest.cityName} 第 ${d + 1} 天安排行程...`,
+            subMessage: `AI 正在规划 ${dest.cityName} 的最佳路线`,
+            estimatedRemainingSeconds: Math.max(5, (totalDays - dayIndex) * 20),
+          });
 
-        const mockDay = generateMockDay(
-          dayIndex,
-          dest.cityName,
-          d === 0,
-          dest.days,
-          body.preferences,
-          d === 0 ? transport : null,
-        );
+          try {
+            const day = await generateDay({
+              dayIndex,
+              cityName: dest.cityName,
+              isFirstDayOfCity: d === 0,
+              daysInCity: dest.days,
+              isLastDay: ci === body.destinations.length - 1 && d === dest.days - 1,
+              preferences: body.preferences,
+              travelers: body.travelers,
+              transport: d === 0 ? transport : null,
+              previousDays: days,
+            });
 
-        days.push(mockDay);
+            days.push(day);
 
-        sse.send('day_ready', {
-          dayIndex,
-          day: mockDay,
-        });
+            sse.send('day_ready', {
+              dayIndex,
+              day,
+            });
+          } catch (dayError: unknown) {
+            // 单天生成失败，发送 warning 并结束流
+            const errMsg = dayError instanceof Error ? dayError.message : '未知错误';
+            sse.send('error', {
+              code: ErrorCode.TRIP_GENERATION_FAILED,
+              message: `第 ${dayIndex} 天行程生成失败: ${errMsg}`,
+              details: errMsg,
+              retryable: true,
+              retryAfterSeconds: 10,
+            });
+            sse.end();
+            return;
+          }
 
-        dayIndex++;
+          dayIndex++;
+        }
       }
+
+      // 完成：计算实际总花费
+      const totalCost =
+        days.reduce((sum: number, day: DayPlan) => {
+          let dayCost = 0;
+          for (const item of day.timeline) {
+            dayCost += item.estimatedCostCNY || 0;
+          }
+          if (day.accommodation?.primary?.pricePerNight) {
+            dayCost += day.accommodation.primary.pricePerNight;
+          }
+          return sum + dayCost;
+        }, 0) + Math.round(days.length * 200); // + 日均杂费（市内交通、小吃等）
+
+      const tripId = `trip_${Date.now().toString(36)}`;
+      sse.send('done', {
+        tripId,
+        totalProcessingTimeSeconds: Math.round(totalDays * 20),
+        totalEstimatedCostCNY: totalCost,
+        summary: `已为你生成 ${totalDays} 天行程，预计总花费约 ¥${totalCost}`,
+        shareUrl: `https://tripplanner.com/share/${tripId}`,
+      });
+
+      // 保存到内存存储，供 TripResultPage 查询
+      const tripResponse: TripResponse = {
+        tripId,
+        title: `${body.destinations.map((d) => d.cityName).join(' → ')} ${totalDays} 日游`,
+        generateTime: new Date().toISOString(),
+        totalDays,
+        totalEstimatedCostCNY: totalCost,
+        departureCity: body.departure.city,
+        status: 'completed',
+        days,
+        shareUrl: `https://tripplanner.com/share/${tripId}`,
+      };
+      saveTrip(tripResponse);
+
+      sse.end();
+    } catch (error: unknown) {
+      // 整体异常处理
+      const errMsg = error instanceof Error ? error.message : '未知错误';
+      sse.send('error', {
+        code: ErrorCode.TRIP_GENERATION_FAILED,
+        message: `攻略生成失败: ${errMsg}`,
+        details: errMsg,
+        retryable: false,
+      });
+      sse.end();
     }
-
-    // 完成：计算实际总花费
-    const totalCost =
-      days.reduce((sum: number, day: DayPlan) => {
-        let dayCost = 0;
-        for (const item of day.timeline) {
-          dayCost += item.estimatedCostCNY || 0;
-        }
-        if (day.accommodation) {
-          dayCost += day.accommodation.primary.pricePerNight;
-        }
-        return sum + dayCost;
-      }, 0) + Math.round(days.length * 200); // + 日均杂费（市内交通、小吃等）
-    const tripId = `trip_${Date.now().toString(36)}`;
-    sse.send('done', {
-      tripId,
-      totalProcessingTimeSeconds: 45,
-      totalEstimatedCostCNY: totalCost,
-      summary: `已为你生成 ${totalDays} 天行程，预计总花费约 ¥${totalCost}`,
-      shareUrl: `https://tripplanner.com/share/${tripId}`,
-    });
-
-    // 保存到内存存储，供 TripResultPage 查询
-    const tripResponse: TripResponse = {
-      tripId,
-      title: `${body.destinations.map((d) => d.cityName).join(' → ')} ${totalDays} 日游`,
-      generateTime: new Date().toISOString(),
-      totalDays,
-      totalEstimatedCostCNY: totalCost,
-      departureCity: body.departure.city,
-      status: 'completed',
-      days,
-      shareUrl: `https://tripplanner.com/share/${tripId}`,
-    };
-    saveTrip(tripResponse);
-
-    sse.end();
   });
 
   /**
