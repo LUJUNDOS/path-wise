@@ -2,6 +2,7 @@
   "name": "path-wise",
   "version": "0.0.1",
   "private": true,
+  "type": "module",
   "description": "旅游攻略生成平台",
   "scripts": {
     "dev": "pnpm --filter web dev & pnpm --filter api dev",

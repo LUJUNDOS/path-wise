@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 import { MapPin, Target, Calendar, Users, Settings, ArrowLeftRight } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { TIME_PERIODS, BUDGET_LEVELS, PACE_LEVELS, ACCOMMODATION_TYPES } from '@/lib/constants';
 import type { TimePeriod, TripPreferences, TravelerGroup } from '@path-wise/shared';
 

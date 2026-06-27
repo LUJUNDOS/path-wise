@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ──────────────────────────────────────────────
+  # 质量门禁：Lint + Format + Typecheck
+  # ──────────────────────────────────────────────
+  quality:
+    name: Lint / Format / Typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Lint (ESLint)
+        run: pnpm lint --max-warnings 0
+
+      - name: Format (Prettier)
+        run: pnpm format --check
+
+      - name: Typecheck (tsc)
+        run: pnpm -r exec npx tsc --noEmit
+
+  # ──────────────────────────────────────────────
+  # 单元测试 + 构建
+  # ──────────────────────────────────────────────
+  test-and-build:
+    name: Test & Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Test (Vitest)
+        run: pnpm --filter api test -- --reporter=verbose && pnpm --filter web test -- --reporter=verbose
+
+      - name: Build
+        run: pnpm build

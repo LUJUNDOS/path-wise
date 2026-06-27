@@ -41,13 +41,7 @@ export default function HomePage() {
     }
   }, [phase]);
 
-  // ── Splash animation styles ──
-  const secStyle = (p: number) => ({
-    opacity: phase >= p ? 1 : 0,
-    transform: phase >= p ? 'translateY(0)' : 'translateY(16px)',
-    transition:
-      'opacity 0.5s cubic-bezier(0.22, 0.61, 0.36, 1), transform 0.5s cubic-bezier(0.22, 0.61, 0.36, 1)',
-  });
+  // ── Splash section ──
 
   return (
     <div className="min-h-screen bg-background relative">
