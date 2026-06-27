@@ -159,7 +159,8 @@ export function routeLLM(config: LLMRouteConfig): LLMRouteDecision {
   }
 
   // 规则 2：根据成本优先级
-  if (costPriority === 'low') return { provider: 'mimo', model: 'mimo-lite', reason: '成本最低' };
+  if (costPriority === 'low')
+    return { provider: 'mimo', model: PROVIDER_REGISTRY.mimo.defaultModel, reason: '成本最低' };
 
   // 规则 3：根据速度优先级
   if (speedPriority === 'fast')
@@ -249,7 +250,11 @@ export async function generateWithLLM(
         429: 'Rate limited',
       };
       const message = STATUS_MESSAGE[response.status] ?? 'API error';
-      throw new LLMAPIError(`[${provider}] ${message}`, `HTTP ${response.status}: ${detail}`);
+      throw new LLMAPIError(
+        `[${provider}] ${message}`,
+        `HTTP ${response.status}: ${detail}`,
+        response.status,
+      );
     }
 
     const data = (await response.json()) as Record<string, unknown>;
@@ -324,22 +329,36 @@ interface RetriableCheckResult {
 
 /**
  * 判断错误是否可重试
- * - 401/403 认证错误：不可重试同一提供商，立即跳下一个
- * - timeout/429 限流：可重试同一提供商
+ * - 401 认证错误：不可重试同一提供商，立即跳下一个
+ * - 429 限流：可重试同一提供商（指数退避）
+ * - 403 禁止访问/配额耗尽：不可重试同一提供商，但跳下一个即可
+ * - timeout 类：可重试同一提供商
  * - 其他错误：不可重试，跳下一个
  */
 function isRetriableError(error: unknown): RetriableCheckResult {
+  if (error instanceof LLMAPIError && error.providerStatusCode) {
+    // 401 — 真实的认证失败，重试同一提供商没用，直接跳过
+    if (error.providerStatusCode === 401) {
+      return { retriable: false, skipProvider: true };
+    }
+    // 429 — 限流/并发超限，可在同一提供商上重试
+    if (error.providerStatusCode === 429) {
+      return { retriable: true, skipProvider: false };
+    }
+    // 403 — 可能是配额耗尽或权限问题，不重试同一提供商但也不标记 skip
+    return { retriable: false, skipProvider: false };
+  }
   if (error instanceof Error) {
-    // 401/403 认证错误 — 重试同一提供商也没用，直接跳过
+    // timeout 类错误 — 可在同一提供商上重试
+    if (error.message.includes('timeout') || error.name === 'AbortError') {
+      return { retriable: true, skipProvider: false };
+    }
+    // fallback: 字符串匹配认证错误（向后兼容非 LLMAPIError 的旧代码）
     if (error.message.includes('Authentication failed')) {
       return { retriable: false, skipProvider: true };
     }
-    // timeout / 429 限流 — 可以在同一提供商上重试
-    if (
-      error.message.includes('timeout') ||
-      error.message.includes('Rate limited') ||
-      error.name === 'AbortError'
-    ) {
+    // fallback: 字符串匹配限流
+    if (error.message.includes('Rate limited')) {
       return { retriable: true, skipProvider: false };
     }
   }
@@ -374,6 +393,8 @@ export async function callWithFallback(
   const errors: string[] = [];
   /** 保留最后一个 LLMAPIError 用于向上传递 details */
   let lastLLMAPIError: unknown = null;
+  /** 实际尝试调用的提供商数量（跳过 key 未配置的不计） */
+  let attemptedCount = 0;
 
   for (let i = 0; i < fallbackChain.length; i++) {
     const provider = fallbackChain[i];
@@ -388,12 +409,13 @@ export async function callWithFallback(
     for (let retry = 0; retry < retryConfig.maxRetries; retry++) {
       try {
         const result = await generateWithLLM(prompt, systemPrompt, provider, modelOverride);
-        if (i > 0) {
-          // 标记使用了降级模型
+        if (attemptedCount > 0) {
+          // 标记使用了降级模型（真正尝试过主模型后才算降级）
           errors.push(
             `[${primaryProvider}] Primary failed, fell back to [${provider}] (attempt ${retry + 1})`,
           );
         }
+        attemptedCount++;
         return result;
       } catch (error: unknown) {
         const errMsg = error instanceof Error ? error.message : String(error);
@@ -404,7 +426,7 @@ export async function callWithFallback(
           lastLLMAPIError = error;
         }
 
-        // 401/403 认证错误 — 立即跳过当前提供商
+        // 401 认证错误 — 立即跳过当前提供商
         if (checkResult.skipProvider) {
           errors.push(
             `[${provider}] Auth error, skipping provider (retry ${retry + 1}/${retryConfig.maxRetries}): ${errMsg}`,
@@ -434,6 +456,7 @@ export async function callWithFallback(
         await sleep(delay);
       }
     }
+    attemptedCount++;
   }
 
   // 所有模型都失败 — 携带最后一个 LLMAPIError 的 details

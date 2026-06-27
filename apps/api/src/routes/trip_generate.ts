@@ -115,7 +115,7 @@ async function generateAllDays(
           return days;
         }
         const errMsg = dayError instanceof Error ? dayError.message : '未知错误';
-        handleDayGenerationError(days, body, sse, totalDays, dayIndex, errMsg);
+        handleDayGenerationError(days, body, sse, reply, totalDays, dayIndex, errMsg);
       }
 
       dayIndex++;
@@ -150,39 +150,59 @@ function safeSSESend(sse: SSEStream, reply: FastifyReply, event: string, data: u
   if (reply.raw.writableEnded || reply.raw.destroyed) {
     throw new ClientDisconnectError();
   }
-  sse.send(event as Parameters<SSEStream['send']>[0], data);
+  try {
+    sse.send(event as Parameters<SSEStream['send']>[0], data);
+  } catch (err: unknown) {
+    if (
+      err instanceof Error &&
+      (err.message.includes('write after end') || err.message.includes('destroyed'))
+    ) {
+      throw new ClientDisconnectError();
+    }
+    throw err;
+  }
 }
 
 /**
  * 处理单天生成失败：保存已有进度、发送 partial done 和 error 事件
+ * @param reply - Fastify reply，用于 safeSSESend 检测连接状态
  * @returns 永远不返回（抛出 DayGenerationPartialCompletion）
  */
 function handleDayGenerationError(
   daysSoFar: DayPlan[],
   body: TripGenerateRequest,
   sse: SSEStream,
+  reply: FastifyReply,
   totalDays: number,
   failedDayIndex: number,
   errMsg: string,
 ): never {
-  if (daysSoFar.length > 0) {
-    const tripResponse = buildTripResponse(daysSoFar, body, totalDays, 'partial');
-    saveTrip(tripResponse);
-    sse.send('done', {
-      tripId: tripResponse.tripId,
-      partial: true,
-      totalProcessingTimeSeconds: 0,
-      totalEstimatedCostCNY: tripResponse.totalEstimatedCostCNY,
-      summary: `仅生成 ${daysSoFar.length}/${totalDays} 天行程（第 ${failedDayIndex} 天失败），预计花费约 ¥${tripResponse.totalEstimatedCostCNY}`,
+  try {
+    if (daysSoFar.length > 0) {
+      const tripResponse = buildTripResponse(daysSoFar, body, totalDays, 'partial');
+      saveTrip(tripResponse);
+      safeSSESend(sse, reply, 'done', {
+        tripId: tripResponse.tripId,
+        partial: true,
+        totalProcessingTimeSeconds: 0,
+        totalEstimatedCostCNY: tripResponse.totalEstimatedCostCNY,
+        summary: `仅生成 ${daysSoFar.length}/${totalDays} 天行程（第 ${failedDayIndex} 天失败），预计花费约 ¥${tripResponse.totalEstimatedCostCNY}`,
+      });
+    }
+    safeSSESend(sse, reply, 'error', {
+      code: ErrorCode.TRIP_GENERATION_FAILED,
+      message: `第 ${failedDayIndex} 天行程生成失败: ${errMsg}`,
+      details: errMsg,
+      retryable: true,
+      retryAfterSeconds: 10,
     });
+  } catch (sendError: unknown) {
+    if (sendError instanceof ClientDisconnectError) {
+      // 客户端已断开，静默退出
+      throw new DayGenerationPartialCompletion();
+    }
+    throw sendError;
   }
-  sse.send('error', {
-    code: ErrorCode.TRIP_GENERATION_FAILED,
-    message: `第 ${failedDayIndex} 天行程生成失败: ${errMsg}`,
-    details: errMsg,
-    retryable: true,
-    retryAfterSeconds: 10,
-  });
   sse.end();
   throw new DayGenerationPartialCompletion();
 }

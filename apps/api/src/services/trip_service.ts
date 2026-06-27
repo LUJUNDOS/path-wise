@@ -21,6 +21,7 @@ import type {
 
 import { CITY_DATA, type CityData, type CityTransport } from '../data/mock_cities.js';
 import { clockTimeToMinutes } from '../utils/time_utils.js';
+import { LLMAPIError } from '../types/errors.js';
 
 // ─────────────────────────────────────────────
 // 重新导出（向后兼容）
@@ -371,7 +372,15 @@ export async function generateDay(params: GenerateDayParams): Promise<DayPlan> {
     const result = await callWithFallback(userPrompt, systemPrompt, provider, routeDecision.model);
 
     // 解析 JSON
-    const dayPlan = JSON.parse(result.text) as DayPlan;
+    let dayPlan: DayPlan;
+    try {
+      dayPlan = JSON.parse(result.text) as DayPlan;
+    } catch {
+      throw new LLMAPIError(
+        'Failed to parse LLM JSON output',
+        `Raw text: ${result.text.slice(0, 200)}`,
+      );
+    }
 
     // H9: 检查 LLM 输出的字段是否与预期一致（帮助调试 Prompt 质量）
     if (dayPlan.cityName && dayPlan.cityName !== cityName) {

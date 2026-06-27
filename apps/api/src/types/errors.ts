@@ -51,9 +51,12 @@ export class CityNotFoundError extends BusinessError {
 
 /** LLM API 错误 */
 export class LLMAPIError extends BusinessError {
-  constructor(message = 'AI 服务暂不可用', details?: string) {
+  /** LLM 提供商返回的 HTTP 状态码（401/403/429 等） */
+  public readonly providerStatusCode?: number;
+  constructor(message = 'AI 服务暂不可用', details?: string, providerStatusCode?: number) {
     super(ErrorCode.LLM_API_ERROR, message, details, 502);
     this.name = 'LLMAPIError';
+    this.providerStatusCode = providerStatusCode;
   }
 }
 

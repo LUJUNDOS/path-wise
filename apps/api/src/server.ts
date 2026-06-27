@@ -14,6 +14,7 @@ import { errorHandlerPlugin } from './plugins/error_handler.js';
 import { responseTimingPlugin } from './plugins/response_timing.js';
 import { envPlugin } from './plugins/env.js';
 import prismaPlugin from './plugins/prisma.js';
+import { validateProviderConfig } from './adapters/llm_router.js';
 
 // 路由
 import { tripGenerateRoutes } from './routes/trip_generate.js';
@@ -37,6 +38,10 @@ async function start(): Promise<void> {
   await server.register(sensible);
   await server.register(envPlugin);
   await server.register(prismaPlugin);
+
+  // 启动时校验 LLM 提供商 API Key 配置
+  // 至少 2 个提供商配置了 Key 才满足降级链的基本要求
+  validateProviderConfig();
 
   // ── 2. 全局错误处理器 ──
   await server.register(errorHandlerPlugin);
