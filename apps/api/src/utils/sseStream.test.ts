@@ -119,10 +119,10 @@ describe('createSSEStream', () => {
       const reply = mockReply();
       const stream = createSSEStream(reply);
 
-      expect(() => stream.send('', { data: true })).not.toThrow();
+      expect(() => stream.send('connected' as const, { data: true })).not.toThrow();
 
       const written = reply.raw.chunks.join('');
-      expect(written).toContain('event: ');
+      expect(written).toContain('event: connected');
     });
   });
 

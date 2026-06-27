@@ -177,13 +177,13 @@ describe('routeLLM', () => {
 // ─────────────────────────────────────────────
 
 import { generateWithLLM } from '../adapters/llm_router.js';
-import { buildSystemPrompt } from '../services/prompt.service.js';
+import { SYSTEM_PROMPT } from '../services/prompt.service.js';
 
 describe('generateWithLLM', () => {
   it('DeepSeek 调用成功时应返回结构化结果', async () => {
     mockFetch.mockResolvedValueOnce(mockSuccessResponse(VALID_DAY_PLAN_JSON));
 
-    const result = await generateWithLLM('测试 prompt', buildSystemPrompt(), 'deepseek');
+    const result = await generateWithLLM('测试 prompt', SYSTEM_PROMPT, 'deepseek');
 
     expect(result.provider).toBe('deepseek');
     expect(result.model).toBe('deepseek-chat');
@@ -206,7 +206,7 @@ describe('generateWithLLM', () => {
   it('GLM 调用成功时应返回结果（无 json_object 约束）', async () => {
     mockFetch.mockResolvedValueOnce(mockSuccessResponse(VALID_DAY_PLAN_JSON));
 
-    const result = await generateWithLLM('测试 prompt', buildSystemPrompt(), 'glm');
+    const result = await generateWithLLM('测试 prompt', SYSTEM_PROMPT, 'glm');
 
     expect(result.provider).toBe('glm');
 
@@ -218,7 +218,7 @@ describe('generateWithLLM', () => {
   it('API Key 未配置时应抛出错误', async () => {
     vi.stubEnv('GLM_API_KEY', '');
 
-    await expect(generateWithLLM('test', buildSystemPrompt(), 'glm')).rejects.toThrow(
+    await expect(generateWithLLM('test', SYSTEM_PROMPT, 'glm')).rejects.toThrow(
       'API Key not found for provider "glm"',
     );
   });
@@ -226,7 +226,7 @@ describe('generateWithLLM', () => {
   it('API 返回错误时应抛出', async () => {
     mockFetch.mockResolvedValueOnce(mockErrorResponse(401, 'Invalid API Key'));
 
-    await expect(generateWithLLM('test', buildSystemPrompt(), 'deepseek')).rejects.toThrow(
+    await expect(generateWithLLM('test', SYSTEM_PROMPT, 'deepseek')).rejects.toThrow(
       /Authentication failed/,
     );
   });
@@ -234,7 +234,7 @@ describe('generateWithLLM', () => {
   it('API 返回 429 限流时应抛出', async () => {
     mockFetch.mockResolvedValueOnce(mockErrorResponse(429, 'Rate limit exceeded'));
 
-    await expect(generateWithLLM('test', buildSystemPrompt(), 'deepseek')).rejects.toThrow(
+    await expect(generateWithLLM('test', SYSTEM_PROMPT, 'deepseek')).rejects.toThrow(
       /Rate limited/,
     );
   });
@@ -243,7 +243,7 @@ describe('generateWithLLM', () => {
     const markdownWrapped = '```json\n' + VALID_DAY_PLAN_JSON + '\n```';
     mockFetch.mockResolvedValueOnce(mockSuccessResponse(markdownWrapped));
 
-    const result = await generateWithLLM('test', buildSystemPrompt(), 'deepseek');
+    const result = await generateWithLLM('test', SYSTEM_PROMPT, 'deepseek');
 
     expect(result.text).toBe(VALID_DAY_PLAN_JSON);
   });
@@ -257,7 +257,7 @@ describe('generateWithLLM', () => {
       }),
     });
 
-    await expect(generateWithLLM('test', buildSystemPrompt(), 'deepseek')).rejects.toThrow(
+    await expect(generateWithLLM('test', SYSTEM_PROMPT, 'deepseek')).rejects.toThrow(
       /Empty or invalid/,
     );
   });
@@ -267,9 +267,7 @@ describe('generateWithLLM', () => {
       Object.assign(new Error('The operation was aborted'), { name: 'AbortError' }),
     );
 
-    await expect(generateWithLLM('test', buildSystemPrompt(), 'deepseek')).rejects.toThrow(
-      /timeout/,
-    );
+    await expect(generateWithLLM('test', SYSTEM_PROMPT, 'deepseek')).rejects.toThrow(/timeout/);
   });
 });
 
@@ -283,7 +281,7 @@ describe('callWithFallback', () => {
   it('主模型成功时应直接返回', async () => {
     mockFetch.mockResolvedValueOnce(mockSuccessResponse(VALID_DAY_PLAN_JSON));
 
-    const result = await callWithFallback('test', buildSystemPrompt(), 'deepseek');
+    const result = await callWithFallback('test', SYSTEM_PROMPT, 'deepseek');
 
     expect(result.provider).toBe('deepseek');
     expect(mockFetch).toHaveBeenCalledTimes(1);
@@ -295,7 +293,7 @@ describe('callWithFallback', () => {
     // GLM 成功
     mockFetch.mockResolvedValueOnce(mockSuccessResponse(VALID_DAY_PLAN_JSON));
 
-    const result = await callWithFallback('test', buildSystemPrompt(), 'deepseek');
+    const result = await callWithFallback('test', SYSTEM_PROMPT, 'deepseek');
 
     expect(result.provider).toBe('glm');
     expect(mockFetch).toHaveBeenCalledTimes(2);
@@ -309,7 +307,7 @@ describe('callWithFallback', () => {
     // Kimi 成功
     mockFetch.mockResolvedValueOnce(mockSuccessResponse(VALID_DAY_PLAN_JSON));
 
-    const result = await callWithFallback('test', buildSystemPrompt(), 'deepseek');
+    const result = await callWithFallback('test', SYSTEM_PROMPT, 'deepseek');
 
     expect(result.provider).toBe('kimi');
     expect(mockFetch).toHaveBeenCalledTimes(3);
@@ -319,7 +317,7 @@ describe('callWithFallback', () => {
     const failResponse = mockErrorResponse(500, 'All down');
     mockFetch.mockResolvedValue(failResponse);
 
-    await expect(callWithFallback('test', buildSystemPrompt(), 'deepseek')).rejects.toThrow(
+    await expect(callWithFallback('test', SYSTEM_PROMPT, 'deepseek')).rejects.toThrow(
       /All LLM providers failed/,
     );
   });
@@ -330,7 +328,7 @@ describe('callWithFallback', () => {
     mockFetch.mockRejectedValueOnce(new Error('[deepseek] Request timeout after 60000ms'));
     mockFetch.mockResolvedValueOnce(mockSuccessResponse(VALID_DAY_PLAN_JSON));
 
-    const result = await callWithFallback('test', buildSystemPrompt(), 'deepseek');
+    const result = await callWithFallback('test', SYSTEM_PROMPT, 'deepseek');
 
     expect(result.provider).toBe('deepseek');
     expect(mockFetch).toHaveBeenCalledTimes(2);
@@ -341,7 +339,7 @@ describe('callWithFallback', () => {
 // Section 4: extractJSON（JSON 提取）
 // ─────────────────────────────────────────────
 
-import { extractJSON } from '../services/prompt.service.js';
+import { extractJSON } from '../utils/json_extractor.js';
 
 describe('extractJSON', () => {
   it('纯 JSON 字符串应直接返回', () => {
@@ -404,20 +402,20 @@ describe('extractJSON', () => {
 });
 
 // ─────────────────────────────────────────────
-// Section 5: buildSystemPrompt + buildDayGenerationPrompt
+// Section 5: SYSTEM_PROMPT + buildDayGenerationPrompt
 // ─────────────────────────────────────────────
 
 import { buildDayGenerationPrompt } from '../services/prompt.service.js';
 
-describe('buildSystemPrompt', () => {
+describe('SYSTEM_PROMPT', () => {
   it('应返回非空字符串', () => {
-    const prompt = buildSystemPrompt();
+    const prompt = SYSTEM_PROMPT;
     expect(prompt).toBeTruthy();
     expect(typeof prompt).toBe('string');
   });
 
   it('应包含核心指令', () => {
-    const prompt = buildSystemPrompt();
+    const prompt = SYSTEM_PROMPT;
     expect(prompt).toContain('旅游规划师');
     expect(prompt).toContain('DayPlan');
     expect(prompt).toContain('JSON');
@@ -426,7 +424,7 @@ describe('buildSystemPrompt', () => {
   });
 
   it('应包含约束条件', () => {
-    const prompt = buildSystemPrompt();
+    const prompt = SYSTEM_PROMPT;
     expect(prompt).toContain('活动数量');
     expect(prompt).toContain('时间不能重叠');
     expect(prompt).toContain('午餐和晚餐');
