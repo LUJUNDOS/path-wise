@@ -6,7 +6,8 @@
  */
 
 import type { LLMRouteConfig } from './llm_types.js';
-import { extractJSON } from '../services/prompt.service.js';
+import { extractJSON } from '../utils/json_extractor.js';
+import { LLMAPIError } from '../types/errors.js';
 
 // ─────────────────────────────────────────────
 // 类型定义
@@ -31,65 +32,71 @@ export interface LLMCallResult {
   model: string;
 }
 
-/** 单个 provider 的配置 */
-interface ProviderConfig {
+// ─────────────────────────────────────────────
+// 统一注册表（单点配置，避免四处查表）
+// 数据来源：docs/LLM调用最佳实践文档_v1.0.0.md §4 / §6.2 / §6.3
+// ─────────────────────────────────────────────
+
+interface ProviderRegistryEntry {
+  /** API 基础 URL */
   baseURL: string;
+  /** 环境变量名（API Key） */
   apiKeyEnv: string;
+  /** 默认模型 */
+  defaultModel: string;
+  /** 采样温度 */
   temperature: number;
+  /** 最大输出 token 数 */
   maxTokens: number;
+  /** 是否支持 JSON 模式 */
   supportsJSONFormat: boolean;
+  /** 价格：CNY per 1M tokens */
+  pricingPer1M: { input: number; output: number };
+  /** 重试配置 */
+  retry: { maxRetries: number; timeoutMs: number };
 }
 
-/** 重试配置 */
-interface RetryConfig {
-  maxRetries: number;
-  timeoutMs: number;
-}
-
-// ─────────────────────────────────────────────
-// 提供商配置（来自 docs/LLM调用最佳实践文档 §4）
-// ─────────────────────────────────────────────
-
-const PROVIDER_CONFIG: Record<LLMProvider, ProviderConfig> = {
+const PROVIDER_REGISTRY: Record<LLMProvider, ProviderRegistryEntry> = {
   deepseek: {
     baseURL: 'https://api.deepseek.com/v1',
     apiKeyEnv: 'DEEPSEEK_API_KEY',
+    defaultModel: 'deepseek-chat',
     temperature: 0.7,
     maxTokens: 8192,
     supportsJSONFormat: true,
+    pricingPer1M: { input: 1, output: 2 },
+    retry: { maxRetries: 3, timeoutMs: 60000 },
   },
   glm: {
     baseURL: 'https://open.bigmodel.cn/api/paas/v4',
     apiKeyEnv: 'GLM_API_KEY',
+    defaultModel: 'glm-4-flash',
     temperature: 0.8,
     maxTokens: 4096,
     supportsJSONFormat: false,
+    pricingPer1M: { input: 0.1, output: 0.1 },
+    retry: { maxRetries: 2, timeoutMs: 45000 },
   },
   kimi: {
     baseURL: 'https://api.moonshot.cn/v1',
     apiKeyEnv: 'KIMI_API_KEY',
+    defaultModel: 'moonshot-v1-8k',
     temperature: 0.6,
     maxTokens: 8192,
     supportsJSONFormat: false,
+    pricingPer1M: { input: 12, output: 12 },
+    retry: { maxRetries: 2, timeoutMs: 90000 },
   },
   mimo: {
     baseURL: 'https://api.mi.com/v1',
     apiKeyEnv: 'MIMO_API_KEY',
+    defaultModel: 'MiMo-7B-RL',
     temperature: 0.7,
     maxTokens: 2048,
     supportsJSONFormat: false,
+    pricingPer1M: { input: 0.5, output: 0.5 },
+    retry: { maxRetries: 2, timeoutMs: 30000 },
   },
-};
-
-// ─────────────────────────────────────────────
-// 重试配置（来自 docs/LLM调用最佳实践文档 §6.3）
-// ─────────────────────────────────────────────
-
-const RETRY_CONFIG: Record<LLMProvider, RetryConfig> = {
-  deepseek: { maxRetries: 3, timeoutMs: 60000 },
-  glm: { maxRetries: 2, timeoutMs: 45000 },
-  kimi: { maxRetries: 2, timeoutMs: 90000 },
-  mimo: { maxRetries: 2, timeoutMs: 30000 },
 };
 
 // ─────────────────────────────────────────────
@@ -97,25 +104,6 @@ const RETRY_CONFIG: Record<LLMProvider, RetryConfig> = {
 // ─────────────────────────────────────────────
 
 const FALLBACK_CHAIN: LLMProvider[] = ['glm', 'kimi'];
-
-/** 汇率常量：CNY per 1M tokens（输入价格/输出价格） */
-const PRICING_PER_1M: Record<LLMProvider, { input: number; output: number }> = {
-  deepseek: { input: 1, output: 2 },
-  glm: { input: 0.1, output: 0.1 },
-  kimi: { input: 12, output: 12 },
-  mimo: { input: 0.5, output: 0.5 },
-};
-
-// ─────────────────────────────────────────────
-// Provider -> model 默认映射
-// ─────────────────────────────────────────────
-
-const PROVIDER_DEFAULT_MODEL: Record<LLMProvider, string> = {
-  deepseek: 'deepseek-chat',
-  glm: 'glm-4-flash',
-  kimi: 'moonshot-v1-8k',
-  mimo: 'MiMo-7B-RL',
-};
 
 // ─────────────────────────────────────────────
 // 路由决策
@@ -163,26 +151,30 @@ export function routeLLM(config: LLMRouteConfig): LLMRouteDecision {
  * @param prompt - User prompt 文本
  * @param systemPrompt - System prompt 文本
  * @param provider - 目标提供商
+ * @param modelOverride - 覆盖注册表中的默认模型（来自 routeLLM 决策）
  * @returns LLM 调用结果
- * @throws 调用失败时抛出错误
+ * @throws 调用失败时抛出 LLMAPIError
  */
 export async function generateWithLLM(
   prompt: string,
   systemPrompt: string,
   provider: LLMProvider = 'deepseek',
+  modelOverride?: string,
 ): Promise<LLMCallResult> {
-  const config = PROVIDER_CONFIG[provider];
-  const retry = RETRY_CONFIG[provider];
-  const apiKey = process.env[config.apiKeyEnv];
+  const entry = PROVIDER_REGISTRY[provider];
+  const apiKey = process.env[entry.apiKeyEnv];
+  const model = modelOverride ?? entry.defaultModel;
 
   if (!apiKey) {
-    throw new Error(`API Key not found for provider "${provider}" (env: ${config.apiKeyEnv})`);
+    throw new LLMAPIError(
+      `API Key not found for provider "${provider}"`,
+      `Environment variable ${entry.apiKeyEnv} is not set`,
+    );
   }
 
-  const url = `${config.baseURL}/chat/completions`;
-  const model = PROVIDER_DEFAULT_MODEL[provider];
+  const url = `${entry.baseURL}/chat/completions`;
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), retry.timeoutMs);
+  const timeoutId = setTimeout(() => controller.abort(), entry.retry.timeoutMs);
 
   try {
     const body: Record<string, unknown> = {
@@ -191,13 +183,15 @@ export async function generateWithLLM(
         { role: 'system', content: systemPrompt },
         { role: 'user', content: prompt },
       ],
-      temperature: config.temperature,
-      max_tokens: config.maxTokens,
+      temperature: entry.temperature,
+      max_tokens: entry.maxTokens,
+      // MVP: LLM 层面使用非流式（stream: false 即一次性返回完整 JSON）。
+      // SSE 流式响应（进度推送）在 trip_generate route 层处理，与 LLM token 流无关。
       stream: false,
     };
 
     // DeepSeek 支持 JSON 模式约束（其他模型在 Prompt 中约束）
-    if (config.supportsJSONFormat) {
+    if (entry.supportsJSONFormat) {
       body.response_format = { type: 'json_object' };
     }
 
@@ -221,22 +215,38 @@ export async function generateWithLLM(
         // use raw errorText
       }
 
-      if (response.status === 401 || response.status === 403) {
-        throw new Error(`[${provider}] Authentication failed (${response.status}): ${detail}`);
-      }
-      if (response.status === 429) {
-        throw new Error(`[${provider}] Rate limited (${response.status}): ${detail}`);
-      }
-      throw new Error(`[${provider}] API error (${response.status}): ${detail}`);
+      const STATUS_MESSAGE: Record<number, string> = {
+        401: 'Authentication failed',
+        403: 'Authentication failed',
+        429: 'Rate limited',
+      };
+      const message = STATUS_MESSAGE[response.status] ?? 'API error';
+      throw new LLMAPIError(`[${provider}] ${message}`, `HTTP ${response.status}: ${detail}`);
     }
 
     const data = (await response.json()) as Record<string, unknown>;
 
-    // 提取文本内容
-    const choices = data.choices as Array<{ message?: { content?: string } }> | undefined;
-    const text = choices?.[0]?.message?.content;
-    if (!text || typeof text !== 'string') {
-      throw new Error(`[${provider}] Empty or invalid response content`);
+    // 提取文本内容（运行时校验 response 结构）
+    const choices = data.choices;
+    if (!Array.isArray(choices) || choices.length === 0) {
+      throw new LLMAPIError(
+        `[${provider}] Unexpected response structure`,
+        'No choices array in response',
+      );
+    }
+    const content = (choices[0] as Record<string, unknown>)?.message;
+    if (typeof content !== 'object' || content === null) {
+      throw new LLMAPIError(
+        `[${provider}] Empty or invalid response content`,
+        'LLM returned no usable text content',
+      );
+    }
+    const text = (content as Record<string, unknown>).content;
+    if (typeof text !== 'string' || text.trim().length === 0) {
+      throw new LLMAPIError(
+        `[${provider}] Empty or invalid response content`,
+        'LLM returned no usable text content',
+      );
     }
 
     // 提取 JSON
@@ -248,7 +258,7 @@ export async function generateWithLLM(
     const outputTokens = usage?.completion_tokens ?? 0;
 
     // 成本计算
-    const pricing = PRICING_PER_1M[provider];
+    const pricing = entry.pricingPer1M;
     const costCNY =
       (inputTokens / 1_000_000) * pricing.input + (outputTokens / 1_000_000) * pricing.output;
 
@@ -261,7 +271,10 @@ export async function generateWithLLM(
     };
   } catch (error: unknown) {
     if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error(`[${provider}] Request timeout after ${retry.timeoutMs}ms`);
+      throw new LLMAPIError(
+        `[${provider}] Request timeout`,
+        `Timeout after ${entry.retry.timeoutMs}ms`,
+      );
     }
     throw error;
   } finally {
@@ -299,13 +312,15 @@ function sleep(ms: number): Promise<void> {
  * @param prompt - User prompt
  * @param systemPrompt - System prompt
  * @param primaryProvider - 首选提供商（来自 routeLLM）
+ * @param modelOverride - 覆盖注册表中的默认模型（来自 routeLLM 决策）
  * @returns LLM 调用结果
- * @throws 所有模型都失败时抛出错误
+ * @throws 所有模型都失败时抛出 LLMAPIError
  */
 export async function callWithFallback(
   prompt: string,
   systemPrompt: string,
   primaryProvider: LLMProvider = 'deepseek',
+  modelOverride?: string,
 ): Promise<LLMCallResult> {
   const fallbackChain = [primaryProvider, ...FALLBACK_CHAIN.filter((m) => m !== primaryProvider)];
 
@@ -313,18 +328,17 @@ export async function callWithFallback(
 
   for (let i = 0; i < fallbackChain.length; i++) {
     const provider = fallbackChain[i];
-    const retryConfig = RETRY_CONFIG[provider];
+    const { retry: retryConfig, apiKeyEnv } = PROVIDER_REGISTRY[provider];
 
     // 检查 API Key 是否配置
-    const config = PROVIDER_CONFIG[provider];
-    if (!process.env[config.apiKeyEnv]) {
+    if (!process.env[apiKeyEnv]) {
       errors.push(`[${provider}] Skipped: API Key not configured`);
       continue;
     }
 
     for (let retry = 0; retry < retryConfig.maxRetries; retry++) {
       try {
-        const result = await generateWithLLM(prompt, systemPrompt, provider);
+        const result = await generateWithLLM(prompt, systemPrompt, provider, modelOverride);
         if (i > 0) {
           // 标记使用了降级模型
           errors.push(
@@ -351,5 +365,5 @@ export async function callWithFallback(
   }
 
   // 所有模型都失败
-  throw new Error(`All LLM providers failed:\n${errors.join('\n')}`);
+  throw new LLMAPIError('All LLM providers failed', `Errors:\n${errors.join('\n')}`);
 }

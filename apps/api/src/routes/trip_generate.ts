@@ -18,7 +18,132 @@ import {
   getMockTransport,
 } from '../services/trip_service.js';
 import { createSSEStream } from '../utils/sseStream.js';
+import type { SSEStream } from '../utils/sseStream.js';
 import { successResponse, errorResponse } from '../utils/response.js';
+
+/** 计算多天行程总花费（timeline 花费 + 住宿 + 日均杂费） */
+function computeTotalCost(days: DayPlan[]): number {
+  return (
+    days.reduce((sum, day) => {
+      let dayCost = 0;
+      for (const item of day.timeline) {
+        dayCost += item.estimatedCostCNY || 0;
+      }
+      if (day.accommodation?.primary?.pricePerNight) {
+        dayCost += day.accommodation.primary.pricePerNight;
+      }
+      return sum + dayCost;
+    }, 0) + Math.round(days.length * 200)
+  );
+}
+
+/** 构建 TripResponse 对象 */
+function buildTripResponse(
+  days: DayPlan[],
+  body: TripGenerateRequest,
+  totalDays: number,
+  status: 'partial' | 'completed',
+): TripResponse {
+  const suffix =
+    status === 'partial' ? ` ${days.length}/${totalDays} 日游（部分）` : ` ${totalDays} 日游`;
+  const tripId = `trip_${Date.now().toString(36)}${status === 'partial' ? '_partial' : ''}`;
+
+  return {
+    tripId,
+    title: `${body.destinations.map((d) => d.cityName).join(' → ')}${suffix}`,
+    generateTime: new Date().toISOString(),
+    totalDays: days.length,
+    totalEstimatedCostCNY: computeTotalCost(days),
+    departureCity: body.departure.city,
+    status,
+    days,
+    shareUrl: `https://tripplanner.com/share/${tripId}`,
+  };
+}
+
+/** 逐城市、逐天生成行程（通过 LLM，失败了降级到 mock） */
+async function generateAllDays(
+  body: TripGenerateRequest,
+  sse: SSEStream,
+  totalDays: number,
+): Promise<DayPlan[]> {
+  let dayIndex = 1;
+  const days: DayPlan[] = [];
+  const departureCity = body.departure.city;
+
+  for (let ci = 0; ci < body.destinations.length; ci++) {
+    const dest = body.destinations[ci];
+    const prevCity = ci === 0 ? departureCity : body.destinations[ci - 1].cityName;
+    const transport =
+      ci === 0
+        ? getMockTransport(departureCity, dest.cityName)
+        : getMockTransport(prevCity, dest.cityName);
+
+    for (let d = 0; d < dest.days; d++) {
+      sse.send('progress', {
+        step: dayIndex,
+        totalSteps: totalDays,
+        percent: Math.round((dayIndex / totalDays) * 100),
+        message: `正在为 ${dest.cityName} 第 ${d + 1} 天安排行程...`,
+        subMessage: `AI 正在规划 ${dest.cityName} 的最佳路线`,
+        estimatedRemainingSeconds: Math.max(5, (totalDays - dayIndex) * 20),
+      });
+
+      try {
+        const day = await generateDay({
+          dayIndex,
+          cityName: dest.cityName,
+          isFirstDayOfCity: d === 0,
+          daysInCity: dest.days,
+          isLastDay: ci === body.destinations.length - 1 && d === dest.days - 1,
+          preferences: body.preferences,
+          travelers: body.travelers,
+          transport: d === 0 ? transport : null,
+          previousDays: days,
+          departureDate: body.departure.date,
+        });
+
+        days.push(day);
+        sse.send('day_ready', { dayIndex, day });
+      } catch (dayError: unknown) {
+        const errMsg = dayError instanceof Error ? dayError.message : '未知错误';
+        if (days.length > 0) {
+          const tripResponse = buildTripResponse(days, body, totalDays, 'partial');
+          saveTrip(tripResponse);
+          sse.send('done', {
+            tripId: tripResponse.tripId,
+            partial: true,
+            totalProcessingTimeSeconds: 0,
+            totalEstimatedCostCNY: tripResponse.totalEstimatedCostCNY,
+            summary: `仅生成 ${days.length}/${totalDays} 天行程（第 ${dayIndex} 天失败），预计花费约 ¥${tripResponse.totalEstimatedCostCNY}`,
+          });
+        }
+        sse.send('error', {
+          code: ErrorCode.TRIP_GENERATION_FAILED,
+          message: `第 ${dayIndex} 天行程生成失败: ${errMsg}`,
+          details: errMsg,
+          retryable: true,
+          retryAfterSeconds: 10,
+        });
+        sse.end();
+        // 抛出特殊标记，让外层 handler 跳过正常完成流程
+        throw new DayGenerationAbortedError();
+      }
+
+      dayIndex++;
+    }
+  }
+
+  return days;
+}
+
+/** 内部标记：天生成失败中止（非系统异常） */
+class DayGenerationAbortedError extends Error {
+  constructor() {
+    super('DAY_GENERATION_ABORTED');
+    this.name = 'DayGenerationAbortedError';
+  }
+}
 
 export async function tripGenerateRoutes(fastify: FastifyInstance): Promise<void> {
   /**
@@ -55,106 +180,25 @@ export async function tripGenerateRoutes(fastify: FastifyInstance): Promise<void
       message: '已开始生成，正在通过 AI 为你规划行程...',
     });
 
-    // 逐城市、逐天生成（通过 LLM，失败了降级到 mock）
     try {
-      let dayIndex = 1;
-      const days: DayPlan[] = [];
-      const departureCity = body.departure.city;
+      const days = await generateAllDays(body, sse, totalDays);
 
-      for (let ci = 0; ci < body.destinations.length; ci++) {
-        const dest = body.destinations[ci];
-        const prevCity = ci === 0 ? departureCity : body.destinations[ci - 1].cityName;
-        const transport =
-          ci === 0
-            ? getMockTransport(departureCity, dest.cityName)
-            : getMockTransport(prevCity, dest.cityName);
-
-        for (let d = 0; d < dest.days; d++) {
-          sse.send('progress', {
-            step: dayIndex,
-            totalSteps: totalDays,
-            percent: Math.round((dayIndex / totalDays) * 100),
-            message: `正在为 ${dest.cityName} 第 ${d + 1} 天安排行程...`,
-            subMessage: `AI 正在规划 ${dest.cityName} 的最佳路线`,
-            estimatedRemainingSeconds: Math.max(5, (totalDays - dayIndex) * 20),
-          });
-
-          try {
-            const day = await generateDay({
-              dayIndex,
-              cityName: dest.cityName,
-              isFirstDayOfCity: d === 0,
-              daysInCity: dest.days,
-              isLastDay: ci === body.destinations.length - 1 && d === dest.days - 1,
-              preferences: body.preferences,
-              travelers: body.travelers,
-              transport: d === 0 ? transport : null,
-              previousDays: days,
-            });
-
-            days.push(day);
-
-            sse.send('day_ready', {
-              dayIndex,
-              day,
-            });
-          } catch (dayError: unknown) {
-            // 单天生成失败，发送 warning 并结束流
-            const errMsg = dayError instanceof Error ? dayError.message : '未知错误';
-            sse.send('error', {
-              code: ErrorCode.TRIP_GENERATION_FAILED,
-              message: `第 ${dayIndex} 天行程生成失败: ${errMsg}`,
-              details: errMsg,
-              retryable: true,
-              retryAfterSeconds: 10,
-            });
-            sse.end();
-            return;
-          }
-
-          dayIndex++;
-        }
-      }
-
-      // 完成：计算实际总花费
-      const totalCost =
-        days.reduce((sum: number, day: DayPlan) => {
-          let dayCost = 0;
-          for (const item of day.timeline) {
-            dayCost += item.estimatedCostCNY || 0;
-          }
-          if (day.accommodation?.primary?.pricePerNight) {
-            dayCost += day.accommodation.primary.pricePerNight;
-          }
-          return sum + dayCost;
-        }, 0) + Math.round(days.length * 200); // + 日均杂费（市内交通、小吃等）
-
-      const tripId = `trip_${Date.now().toString(36)}`;
+      // 完成
+      const tripResponse = buildTripResponse(days, body, totalDays, 'completed');
       sse.send('done', {
-        tripId,
+        tripId: tripResponse.tripId,
         totalProcessingTimeSeconds: Math.round(totalDays * 20),
-        totalEstimatedCostCNY: totalCost,
-        summary: `已为你生成 ${totalDays} 天行程，预计总花费约 ¥${totalCost}`,
-        shareUrl: `https://tripplanner.com/share/${tripId}`,
+        totalEstimatedCostCNY: tripResponse.totalEstimatedCostCNY,
+        summary: `已为你生成 ${totalDays} 天行程，预计总花费约 ¥${tripResponse.totalEstimatedCostCNY}`,
+        shareUrl: `https://tripplanner.com/share/${tripResponse.tripId}`,
       });
-
-      // 保存到内存存储，供 TripResultPage 查询
-      const tripResponse: TripResponse = {
-        tripId,
-        title: `${body.destinations.map((d) => d.cityName).join(' → ')} ${totalDays} 日游`,
-        generateTime: new Date().toISOString(),
-        totalDays,
-        totalEstimatedCostCNY: totalCost,
-        departureCity: body.departure.city,
-        status: 'completed',
-        days,
-        shareUrl: `https://tripplanner.com/share/${tripId}`,
-      };
       saveTrip(tripResponse);
-
       sse.end();
     } catch (error: unknown) {
-      // 整体异常处理
+      if (error instanceof DayGenerationAbortedError) {
+        // 错误已在 generateAllDays 内部发送，不需要额外处理
+        return;
+      }
       const errMsg = error instanceof Error ? error.message : '未知错误';
       sse.send('error', {
         code: ErrorCode.TRIP_GENERATION_FAILED,

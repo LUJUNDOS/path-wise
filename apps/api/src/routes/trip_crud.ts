@@ -138,11 +138,15 @@ export async function tripCrudRoutes(fastify: FastifyInstance): Promise<void> {
       reply: FastifyReply,
     ) => {
       const { tripId } = request.params;
+      const trip = await getTrip(tripId);
+      if (!trip) {
+        return reply.status(404).send(errorResponse(ErrorCode.RESOURCE_NOT_FOUND, '攻略不存在'));
+      }
       const options: ExportOptions = {
         format: (request.query.format as ExportOptions['format']) ?? 'pdf',
         size: request.query.size,
       };
-      const result = await exportTrip(tripId, options);
+      const result = await exportTrip(trip, options);
       return reply.send(successResponse(result));
     },
   );

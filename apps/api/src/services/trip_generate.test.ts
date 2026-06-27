@@ -497,7 +497,18 @@ describe('buildDayGenerationPrompt', () => {
     const prompt = buildDayGenerationPrompt({
       ...baseParams,
       isFirstDayOfCity: true,
-      transport: { type: 'high_speed_rail', trainNumber: 'G1' },
+      transport: {
+        type: 'high_speed_rail',
+        trainNumber: 'G1',
+        departTime: '08:00',
+        arriveTime: '13:00',
+        durationMinutes: 300,
+        pricePerPerson: { secondClass: 500, firstClass: 800 },
+        departureStation: '出发站',
+        arrivalStation: '到达站',
+        bookingUrl: 'https://www.12306.cn',
+        note: '仅参考',
+      },
     });
     expect(prompt).toContain('大交通信息');
     expect(prompt).toContain('G1');
@@ -588,6 +599,7 @@ describe('generateDay', () => {
     },
     transport: null,
     previousDays: [],
+    departureDate: '2026-07-01',
   };
 
   it('LLM 成功时应返回生成的 DayPlan', async () => {
@@ -671,5 +683,383 @@ describe('generateDay', () => {
     // 降级到默认城市（长沙）
     expect(result.cityName).toBe('火星');
     expect(result.timeline.length).toBeGreaterThan(0);
+  });
+
+  it('城市知识库数据为 null 时 LLM 成功应正常返回', async () => {
+    mockFetch.mockResolvedValueOnce(mockSuccessResponse(VALID_DAY_PLAN_JSON));
+
+    const result = await generateDay({
+      ...baseGenerateParams,
+      cityName: '火星', // CITY_DATA['火星'] 返回 null
+      forceProvider: 'deepseek',
+    });
+
+    expect(result.cityName).toBe('火星');
+    expect(result.dayIndex).toBe(baseGenerateParams.dayIndex);
+    expect(result.timeline.length).toBeGreaterThan(0);
+  });
+});
+
+// ─────────────────────────────────────────────
+// Section 7: validateTripRequest（请求校验 + 冲突检测）
+// ─────────────────────────────────────────────
+
+import { validateTripRequest } from '../services/trip_service.js';
+import type { TripGenerateRequest } from '@path-wise/shared';
+
+function makeValidRequest(overrides: Partial<TripGenerateRequest> = {}): TripGenerateRequest {
+  return {
+    departure: { city: '北京', date: '2026-07-01', timePeriod: 'morning' },
+    destinations: [{ cityName: '西安', days: 3, transportTo: null }],
+    travelers: { adults: 1, children: [], elders: 0 },
+    preferences: {
+      budget: 'comfort',
+      pace: 'moderate',
+      accommodation: 'chain_hotel',
+      dining: ['面食'],
+      interests: ['history'],
+    },
+    ...overrides,
+  };
+}
+
+describe('validateTripRequest', () => {
+  it('正常请求应返回 valid: true 且空冲突列表', () => {
+    const result = validateTripRequest(makeValidRequest());
+    expect(result.valid).toBe(true);
+    expect(result.conflicts).toHaveLength(0);
+  });
+
+  it('穷游预算 + 精品酒店应产生冲突', () => {
+    const result = validateTripRequest(
+      makeValidRequest({
+        preferences: {
+          budget: 'economy',
+          pace: 'moderate',
+          accommodation: 'boutique',
+          dining: [],
+          interests: [],
+        },
+      }),
+    );
+    expect(result.conflicts).toHaveLength(1);
+    expect(result.conflicts[0].type).toBe('budget_accommodation');
+    expect(result.conflicts[0].severity).toBe('warning');
+  });
+
+  it('穷游预算 + 奢华酒店应产生冲突', () => {
+    const result = validateTripRequest(
+      makeValidRequest({
+        preferences: {
+          budget: 'economy',
+          pace: 'moderate',
+          accommodation: 'luxury',
+          dining: [],
+          interests: [],
+        },
+      }),
+    );
+    expect(result.conflicts).toHaveLength(1);
+    expect(result.conflicts[0].type).toBe('budget_accommodation');
+  });
+
+  it('舒适预算 + 精品酒店不应产生 budget_accommodation 冲突', () => {
+    const result = validateTripRequest(
+      makeValidRequest({
+        preferences: {
+          budget: 'comfort',
+          pace: 'moderate',
+          accommodation: 'boutique',
+          dining: [],
+          interests: [],
+        },
+      }),
+    );
+    expect(result.conflicts.filter((c) => c.type === 'budget_accommodation')).toHaveLength(0);
+  });
+
+  it('有老人 + 高强度节奏应产生冲突', () => {
+    const result = validateTripRequest(
+      makeValidRequest({
+        travelers: { adults: 2, children: [], elders: 1 },
+        preferences: {
+          budget: 'comfort',
+          pace: 'intensive',
+          accommodation: 'chain_hotel',
+          dining: [],
+          interests: [],
+        },
+      }),
+    );
+    expect(result.conflicts).toHaveLength(1);
+    expect(result.conflicts[0].type).toBe('pace_elders');
+    expect(result.conflicts[0].severity).toBe('warning');
+  });
+
+  it('有老人但节奏适中不应产生 pace_elders 冲突', () => {
+    const result = validateTripRequest(
+      makeValidRequest({
+        travelers: { adults: 2, children: [], elders: 2 },
+        preferences: {
+          budget: 'comfort',
+          pace: 'moderate',
+          accommodation: 'chain_hotel',
+          dining: [],
+          interests: [],
+        },
+      }),
+    );
+    expect(result.conflicts.filter((c) => c.type === 'pace_elders')).toHaveLength(0);
+  });
+
+  it('无老人 + 高强度节奏不应产生 pace_elders 冲突', () => {
+    const result = validateTripRequest(
+      makeValidRequest({
+        travelers: { adults: 2, children: [], elders: 0 },
+        preferences: {
+          budget: 'comfort',
+          pace: 'intensive',
+          accommodation: 'chain_hotel',
+          dining: [],
+          interests: [],
+        },
+      }),
+    );
+    expect(result.conflicts.filter((c) => c.type === 'pace_elders')).toHaveLength(0);
+  });
+
+  it('两个冲突条件同时满足时应产生两个冲突', () => {
+    const result = validateTripRequest(
+      makeValidRequest({
+        travelers: { adults: 2, children: [], elders: 1 },
+        preferences: {
+          budget: 'economy',
+          pace: 'intensive',
+          accommodation: 'boutique',
+          dining: [],
+          interests: [],
+        },
+      }),
+    );
+    expect(result.conflicts).toHaveLength(2);
+  });
+});
+
+// ─────────────────────────────────────────────
+// Section 8: generateMockDay（Mock 日计划生成）
+// ─────────────────────────────────────────────
+
+import { generateMockDay } from '../services/trip_service.js';
+import { getMockTransport } from '../data/mock_cities.js';
+
+describe('generateMockDay', () => {
+  it('已知城市应返回非空 DayPlan', () => {
+    const result = generateMockDay(1, '长沙', true, 3);
+    expect(result.dayIndex).toBe(1);
+    expect(result.cityName).toBe('长沙');
+    expect(result.isFirstDayOfCity).toBe(true);
+    expect(result.dayType).toBe('transit_departure');
+    expect(result.timeline.length).toBeGreaterThan(0);
+    expect(result.tips.length).toBeGreaterThan(0);
+  });
+
+  it('未知城市应降级到长沙数据', () => {
+    const result = generateMockDay(1, '火星', false, 2);
+    expect(result.cityName).toBe('火星');
+    expect(result.timeline.length).toBeGreaterThan(0);
+  });
+
+  it('非首日应生成 city_exploration 类型', () => {
+    const result = generateMockDay(2, '北京', false, 3);
+    expect(result.dayType).toBe('city_exploration');
+    expect(result.transport).toBeNull();
+  });
+
+  it('首个城市日应包含交通信息', () => {
+    const transport = getMockTransport('北京', '上海');
+    const result = generateMockDay(1, '上海', true, 3, undefined, transport);
+    expect(result.isFirstDayOfCity).toBe(true);
+  });
+
+  it('穷游预算应降低花费', () => {
+    const comfort = generateMockDay(1, '成都', false, 3, {
+      budget: 'comfort',
+      pace: 'moderate',
+      accommodation: 'chain_hotel',
+      dining: [],
+      interests: [],
+    });
+    const economy = generateMockDay(1, '成都', false, 3, {
+      budget: 'economy',
+      pace: 'moderate',
+      accommodation: 'chain_hotel',
+      dining: [],
+      interests: [],
+    });
+    const comfortTotal = comfort.timeline.reduce((s, i) => s + i.estimatedCostCNY, 0);
+    const economyTotal = economy.timeline.reduce((s, i) => s + i.estimatedCostCNY, 0);
+    expect(economyTotal).toBeLessThanOrEqual(comfortTotal);
+  });
+
+  it('奢华预算应提高花费', () => {
+    const comfort = generateMockDay(1, '杭州', false, 3, {
+      budget: 'comfort',
+      pace: 'moderate',
+      accommodation: 'chain_hotel',
+      dining: [],
+      interests: [],
+    });
+    const luxury = generateMockDay(1, '杭州', false, 3, {
+      budget: 'luxury',
+      pace: 'moderate',
+      accommodation: 'chain_hotel',
+      dining: [],
+      interests: [],
+    });
+    const comfortTotal = comfort.timeline.reduce((s, i) => s + i.estimatedCostCNY, 0);
+    const luxuryTotal = luxury.timeline.reduce((s, i) => s + i.estimatedCostCNY, 0);
+    expect(luxuryTotal).toBeGreaterThanOrEqual(comfortTotal);
+  });
+});
+
+// ─────────────────────────────────────────────
+// Section 9: getMockTransport（城际交通查询）
+// ─────────────────────────────────────────────
+
+describe('getMockTransport', () => {
+  it('已知路线应返回固定车次', () => {
+    const result = getMockTransport('北京', '上海');
+    expect(result.type).toBe('high_speed_rail');
+    expect(result.trainNumber).toBe('G1');
+    expect(result.departTime).toBe('09:00');
+    expect(result.arriveTime).toBe('13:28');
+    expect(result.durationMinutes).toBe(268);
+    expect(result.pricePerPerson).toHaveProperty('secondClass', 553);
+    expect(result.pricePerPerson).toHaveProperty('firstClass', 933);
+    expect(result.departureStation).toBe('北京南站');
+    expect(result.arrivalStation).toBe('上海虹桥站');
+  });
+
+  it('反向路线（反向 key）应返回空或降级', () => {
+    const result = getMockTransport('上海', '北京');
+    // 没有上海_北京的精确 key，返回随机降级
+    expect(result).toBeDefined();
+    expect(result.type).toBe('high_speed_rail');
+  });
+
+  it('降级路由应生成自动车次', () => {
+    const result = getMockTransport('拉萨', '喀什');
+    expect(result.type).toBe('high_speed_rail');
+    expect(result.trainNumber).toMatch(/^G\d+$/);
+    expect(result.departureStation).toBe('拉萨站');
+    expect(result.arrivalStation).toBe('喀什站');
+    expect(result.note).toContain('仅供参考');
+  });
+
+  it('近距离路线应有合理时长', () => {
+    const result = getMockTransport('广州', '深圳');
+    expect(result.durationMinutes).toBe(31);
+    expect(result.pricePerPerson.secondClass).toBeLessThan(100);
+  });
+});
+
+// ─────────────────────────────────────────────
+// Section 10: exportTrip + saveTrip + getTrip（CRUD 操作）
+// ─────────────────────────────────────────────
+
+import { saveTrip, getTrip, exportTrip } from '../services/trip_service.js';
+import type { TripResponse } from '@path-wise/shared';
+
+function makeTrip(overrides: Partial<TripResponse> = {}): TripResponse {
+  return {
+    tripId: 'test_trip_001',
+    title: '测试攻略',
+    generateTime: new Date().toISOString(),
+    totalDays: 2,
+    totalEstimatedCostCNY: 1500,
+    departureCity: '北京',
+    status: 'completed',
+    days: [
+      {
+        dayIndex: 1,
+        date: '2026-07-01',
+        dayType: 'transit_departure',
+        cityName: '西安',
+        isFirstDayOfCity: true,
+        title: 'Day 1 · 抵达西安',
+        timeline: [
+          {
+            id: 'i1',
+            type: 'dining',
+            title: '午餐',
+            startTime: '12:00',
+            endTime: '13:00',
+            estimatedDuration: 60,
+            estimatedCostCNY: 50,
+            energyLevel: 'LOW',
+            bookingRequired: false,
+          },
+          {
+            id: 'i2',
+            type: 'attraction',
+            title: '大雁塔',
+            startTime: '14:00',
+            endTime: '16:00',
+            estimatedDuration: 120,
+            estimatedCostCNY: 60,
+            energyLevel: 'LOW',
+            bookingRequired: false,
+          },
+        ],
+        tips: ['建议提前预约'],
+      },
+    ],
+    ...overrides,
+  };
+}
+
+describe('saveTrip + getTrip', () => {
+  it('保存后应可查询', async () => {
+    const trip = makeTrip();
+    saveTrip(trip);
+    const found = await getTrip(trip.tripId);
+    expect(found).not.toBeNull();
+    expect(found!.tripId).toBe(trip.tripId);
+    expect(found!.title).toBe(trip.title);
+    expect(found!.days).toHaveLength(1);
+  });
+
+  it('不存在的攻略应返回 null', async () => {
+    const found = await getTrip('nonexistent');
+    expect(found).toBeNull();
+  });
+});
+
+describe('exportTrip', () => {
+  it('保存后导出应返回 HTML 格式', async () => {
+    const trip = makeTrip();
+    saveTrip(trip);
+
+    const result = await exportTrip(trip, { format: 'html' });
+    expect(result.status).toBe('ready');
+    expect(result.format).toBe('html');
+    expect(result.sizeBytes).toBeGreaterThan(0);
+    expect(result.downloadUrl).toContain('data:text/html');
+    expect(result.expiresAt).toBeTruthy();
+    expect(result.exportId).toBe(`export_${trip.tripId}`);
+  });
+
+  it('导出的 HTML 应包含行程信息', async () => {
+    const trip = makeTrip();
+    saveTrip(trip);
+
+    const result = await exportTrip(trip, { format: 'html' });
+    const html = decodeURIComponent(
+      result.downloadUrl!.replace('data:text/html;charset=utf-8,', ''),
+    );
+    expect(html).toContain('测试攻略');
+    expect(html).toContain('大雁塔');
+    expect(html).toContain('西安');
+    expect(html).toContain('<!DOCTYPE html>');
   });
 });
