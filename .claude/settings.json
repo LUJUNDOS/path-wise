@@ -9,22 +9,17 @@
       "Skill(pr)",
       "Skill(pr:*)",
       "Bash(git commit -m '@ *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(git push *)",
+      "Bash(npx lint-staged *)",
+      "PowerShell(New-Item -ItemType Directory -Force -Path .github/workflows)",
+      "Bash(pnpm lint *)",
+      "PowerShell(npx pnpm lint --max-warnings 0 2>&1)",
+      "PowerShell(npx pnpm format --check 2>&1)",
+      "PowerShell(npx pnpm -r exec npx tsc --noEmit 2>&1)"
     ]
   },
   "hooks": {
-    "SessionStart": [
-      {
-        "matcher": "startup|resume",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PROJECT_DIR}/scripts/sync-code-map.ps1\" -ProjectDir \"${CLAUDE_PROJECT_DIR}\"",
-            "statusMessage": "🔍 检查 docs/ & apps/ 文件变更..."
-          }
-        ]
-      }
-    ],
     "PostToolUse": [
       {
         "matcher": "Write|Edit",

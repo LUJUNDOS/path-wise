@@ -54,3 +54,4 @@ CLAUDE.local.md
 
 # Workbuddy personal overrides
 .workbuddy/
+apps/web/tsconfig.tsbuildinfo
