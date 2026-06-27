@@ -1061,3 +1061,692 @@ describe('exportTrip', () => {
     expect(html).toContain('<!DOCTYPE html>');
   });
 });
+
+// ─────────────────────────────────────────────
+// Section 11: validateProviderConfig（启动时校验）
+// ─────────────────────────────────────────────
+
+import { validateProviderConfig } from '../adapters/llm_router.js';
+
+describe('validateProviderConfig', () => {
+  it('所有 Key 已配置时应返回全部 4 个提供商', () => {
+    const result = validateProviderConfig();
+    expect(result.configured).toContain('deepseek');
+    expect(result.configured).toContain('glm');
+    expect(result.configured).toContain('kimi');
+    expect(result.configured).toContain('mimo');
+    expect(result.configured).toHaveLength(4);
+    expect(result.missing).toHaveLength(0);
+  });
+
+  it('部分 Key 缺失时应正确分类', () => {
+    vi.stubEnv('GLM_API_KEY', '');
+    vi.stubEnv('MIMO_API_KEY', '');
+    const result = validateProviderConfig();
+    expect(result.configured).toEqual(['deepseek', 'kimi']);
+    expect(result.missing).toEqual(['glm', 'mimo']);
+  });
+
+  it('仅配置 1 个提供商应触发警告但正常返回', () => {
+    vi.stubEnv('DEEPSEEK_API_KEY', '');
+    vi.stubEnv('GLM_API_KEY', '');
+    vi.stubEnv('KIMI_API_KEY', '');
+    const result = validateProviderConfig();
+    expect(result.configured).toEqual(['mimo']);
+    expect(result.missing).toEqual(['deepseek', 'glm', 'kimi']);
+  });
+
+  it('0 个提供商配置时应返回空 configured 数组', () => {
+    vi.stubEnv('DEEPSEEK_API_KEY', '');
+    vi.stubEnv('GLM_API_KEY', '');
+    vi.stubEnv('KIMI_API_KEY', '');
+    vi.stubEnv('MIMO_API_KEY', '');
+    const result = validateProviderConfig();
+    expect(result.configured).toEqual([]);
+    expect(result.missing).toHaveLength(4);
+  });
+});
+
+// ─────────────────────────────────────────────
+// Section 12: callWithFallback 重试逻辑（三类错误分类）
+// ─────────────────────────────────────────────
+
+import { LLMAPIError } from '../types/errors.js';
+
+describe('callWithFallback 重试逻辑（三类错误分类）', () => {
+  const mockSuccess = () => mockSuccessResponse(VALID_DAY_PLAN_JSON);
+
+  it('401 错误应立即跳过当前提供商并降级', async () => {
+    // DeepSeek 401 → 立即降到 GLM（不重试 DeepSeek）
+    mockFetch.mockResolvedValueOnce(mockErrorResponse(401, 'Invalid API Key'));
+    mockFetch.mockResolvedValueOnce(mockSuccess());
+
+    const result = await callWithFallback('test', SYSTEM_PROMPT, 'deepseek');
+
+    expect(result.provider).toBe('glm');
+    // 只应调用 2 次（401 不重试同一提供商）
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('429 限流错误应在同一提供商上重试（最多 maxRetries 次）后再降级', async () => {
+    // DeepSeek maxRetries=3 → 3 次尝试全部 429 → 降级到 GLM
+    mockFetch.mockResolvedValueOnce(mockErrorResponse(429, 'Rate limited'));
+    mockFetch.mockResolvedValueOnce(mockErrorResponse(429, 'Rate limited'));
+    mockFetch.mockResolvedValueOnce(mockErrorResponse(429, 'Rate limited'));
+    mockFetch.mockResolvedValueOnce(mockSuccess());
+
+    const result = await callWithFallback('test', SYSTEM_PROMPT, 'deepseek');
+
+    // DeepSeek 3 次 + GLM 1 次 = 4 次
+    expect(mockFetch).toHaveBeenCalledTimes(4);
+    expect(result.provider).toBe('glm');
+  }, 25000);
+
+  it('403 错误不应重试同一提供商但应降级到下一个', async () => {
+    // DeepSeek 403 → 不重试 DeepSeek → 降级到 GLM
+    mockFetch.mockResolvedValueOnce(mockErrorResponse(403, 'Forbidden'));
+    mockFetch.mockResolvedValueOnce(mockSuccess());
+
+    const result = await callWithFallback('test', SYSTEM_PROMPT, 'deepseek');
+
+    expect(result.provider).toBe('glm');
+    expect(mockFetch).toHaveBeenCalledTimes(2); // 403 不重试
+  });
+
+  it('timeout 错误（AbortError）应在同一提供商上重试', async () => {
+    // DeepSeek timeout → 重试 → 成功
+    mockFetch.mockRejectedValueOnce(
+      Object.assign(new Error('The operation was aborted'), { name: 'AbortError' }),
+    );
+    mockFetch.mockResolvedValueOnce(mockSuccess());
+
+    const result = await callWithFallback('test', SYSTEM_PROMPT, 'deepseek');
+
+    expect(result.provider).toBe('deepseek');
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  }, 15000);
+
+  it('非 LLMAPIError 的 Authentication failed 消息也应跳过提供商', async () => {
+    // DeepSeek 抛出非 LLMAPIError 但消息含 "Authentication failed"
+    mockFetch.mockRejectedValueOnce(new Error('[deepseek] Authentication failed'));
+    mockFetch.mockResolvedValueOnce(mockSuccess());
+
+    const result = await callWithFallback('test', SYSTEM_PROMPT, 'deepseek');
+
+    expect(result.provider).toBe('glm');
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('非 LLMAPIError 的 Rate limited 消息应重试', async () => {
+    mockFetch.mockRejectedValueOnce(new Error('[deepseek] Rate limited'));
+    mockFetch.mockResolvedValueOnce(mockSuccess());
+
+    const result = await callWithFallback('test', SYSTEM_PROMPT, 'deepseek');
+
+    expect(result.provider).toBe('deepseek');
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  }, 15000);
+
+  it('未知错误类型不重试直接跳到下一个提供商', async () => {
+    mockFetch.mockRejectedValueOnce(new Error('Unknown network failure'));
+    mockFetch.mockResolvedValueOnce(mockSuccess());
+
+    const result = await callWithFallback('test', SYSTEM_PROMPT, 'deepseek');
+
+    expect(result.provider).toBe('glm');
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('API Key 未配置的提供商应跳过且不计为重试目标', async () => {
+    // 清除 GLM key，让它被跳过
+    vi.stubEnv('GLM_API_KEY', '');
+    // DeepSeek 失败 → GLM 跳过 → Kimi 成功
+    mockFetch.mockResolvedValueOnce(mockErrorResponse(401, 'Invalid API Key'));
+    mockFetch.mockResolvedValueOnce(mockSuccess());
+
+    const result = await callWithFallback('test', SYSTEM_PROMPT, 'deepseek');
+
+    // 直接跳到 Kimi（GLM key 未配置被跳过）
+    expect(result.provider).toBe('kimi');
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+});
+
+// ─────────────────────────────────────────────
+// Section 13: extractJSON 边界（括号计数、转义、嵌套）
+// ─────────────────────────────────────────────
+
+describe('extractJSON 括号计数边界', () => {
+  it('JSON 字符串中包含 { } 字符时应正确提取', () => {
+    const testJson = JSON.stringify({ key: 'value with { braces } inside' });
+    const result = extractJSON(testJson);
+    expect(JSON.parse(result)).toEqual({ key: 'value with { braces } inside' });
+  });
+
+  it('JSON 字符串中包含转义引号时应正确提取', () => {
+    const testJson = JSON.stringify({ key: 'escaped " quote' });
+    const result = extractJSON(testJson);
+    expect(JSON.parse(result)).toEqual({ key: 'escaped " quote' });
+  });
+
+  it('JSON 字符串中包含反斜杠转义时应正确提取', () => {
+    const testJson = JSON.stringify({ key: 'backslash \\ followed by text' });
+    const result = extractJSON(testJson);
+    expect(JSON.parse(result).key).toContain('backslash');
+  });
+
+  it('深层嵌套 JSON 应正确提取', () => {
+    const testJson = JSON.stringify({ a: { b: { c: { d: { e: { f: 42 } } } } } });
+    const result = extractJSON(testJson);
+    expect(JSON.parse(result)).toEqual({ a: { b: { c: { d: { e: { f: 42 } } } } } });
+  });
+
+  it('包含换行符的 JSON 字符串应正确提取', () => {
+    const testJson = JSON.stringify({
+      text: 'line1\nline2',
+      value: 42,
+    });
+    const result = extractJSON(testJson);
+    expect(() => JSON.parse(result)).not.toThrow();
+    expect(JSON.parse(result).text).toBe('line1\nline2');
+  });
+
+  it('空数组 JSON 应正确提取', () => {
+    expect(extractJSON('[]')).toBe('[]');
+  });
+
+  it('包含嵌套对象的数组 JSON 应提取', () => {
+    const testJson = JSON.stringify([{ id: 1 }, { id: 2 }, { id: 3 }]);
+    const result = extractJSON(testJson);
+    expect(JSON.parse(result)).toEqual([{ id: 1 }, { id: 2 }, { id: 3 }]);
+  });
+
+  it('Markdown 代码块中的深层嵌套 JSON 应正确提取', () => {
+    const inner = JSON.stringify({ nested: { deep: { value: [1, 2, { x: 'test' }] } } });
+    const input = `\`\`\`json\n${inner}\n\`\`\``;
+    const result = extractJSON(input);
+    expect(JSON.parse(result)).toEqual({ nested: { deep: { value: [1, 2, { x: 'test' }] } } });
+  });
+
+  it('多个 JSON 对象出现在同一文本时应仅返回第一个', () => {
+    const input = `{"first":1} 其他文字 {"second":2}`;
+    const result = extractJSON(input);
+    expect(JSON.parse(result)).toEqual({ first: 1 });
+  });
+});
+
+// ─────────────────────────────────────────────
+// Section 14: generateMockDay departureDate 参数
+// ─────────────────────────────────────────────
+
+describe('generateMockDay departureDate 参数', () => {
+  it('不传 departureDate 应默认使用正确日期（基于 new Date(2026, 6, 1)）', () => {
+    const result = generateMockDay(1, '长沙', true, 3);
+    // new Date(2026, 6, 1) creates local 2026-07-01 midnight; toISOString uses UTC
+    // Depending on timezone, the date string may be 2026-06-30 or 2026-07-01
+    expect(result.date).toMatch(/^2026-0[67]-\d{2}$/);
+    expect(typeof result.date).toBe('string');
+  });
+
+  it('传入 departureDate 应计算正确的日期', () => {
+    const result = generateMockDay(1, '长沙', true, 3, undefined, null, '2026-08-15');
+    expect(result.date).toBe('2026-08-15');
+  });
+
+  it('dayIndex=3 时日期应为 departureDate + 2 天', () => {
+    const result = generateMockDay(3, '长沙', false, 3, undefined, null, '2026-08-15');
+    expect(result.date).toBe('2026-08-17');
+  });
+
+  it('跨月边界应正确计算', () => {
+    const result = generateMockDay(1, '长沙', true, 3, undefined, null, '2026-01-31');
+    expect(result.date).toBe('2026-01-31');
+  });
+
+  it('dayIndex 大值时跨月应正确计算', () => {
+    // 2026-01-31 + 1 天（dayIndex=2，即 +1）= 2026-02-01
+    const result = generateMockDay(2, '长沙', false, 3, undefined, null, '2026-01-31');
+    expect(result.date).toBe('2026-02-01');
+  });
+
+  it('无偏好时使用默认 budget 乘数（comfort=1）', () => {
+    const result = generateMockDay(1, '成都', false, 3);
+    expect(result.timeline.length).toBeGreaterThan(0);
+    expect(result.timeline[0].estimatedCostCNY).toBeGreaterThanOrEqual(0);
+  });
+
+  it('luxury budget 应产生更高的住宿花费', () => {
+    const comfortResult = generateMockDay(1, '北京', true, 3, {
+      budget: 'comfort' as const,
+      pace: 'moderate' as const,
+      accommodation: 'chain_hotel',
+      dining: [],
+      interests: [],
+    });
+    const luxuryResult = generateMockDay(1, '北京', true, 3, {
+      budget: 'luxury' as const,
+      pace: 'moderate' as const,
+      accommodation: 'chain_hotel',
+      dining: [],
+      interests: [],
+    });
+    if (comfortResult.accommodation && luxuryResult.accommodation) {
+      expect(luxuryResult.accommodation.primary.pricePerNight).toBeGreaterThanOrEqual(
+        comfortResult.accommodation.primary.pricePerNight,
+      );
+    }
+  });
+
+  it('非首家城市日 accommodation 应为 null', () => {
+    const result = generateMockDay(2, '长沙', false, 3);
+    expect(result.accommodation).toBeNull();
+  });
+
+  it('首日 transport 应携带传入的交通信息', () => {
+    const transport = getMockTransport('北京', '上海');
+    const result = generateMockDay(1, '上海', true, 3, undefined, transport);
+    // transport 字段在 isFirstDayOfCity 为 true 时被赋值
+    const isTransportPresent = result.transport !== null && result.transport !== undefined;
+    expect(isTransportPresent).toBe(true);
+    if (result.transport) {
+      expect((result.transport as Record<string, unknown>).trainNumber ?? '').toBeTruthy();
+    }
+  });
+});
+
+// ─────────────────────────────────────────────
+// Section 15: generateDay 边界（LLM 解析失败、字段纠正、estimatedDuration 补全）
+// ─────────────────────────────────────────────
+
+describe('generateDay 边界场景', () => {
+  const baseGenerateParams = {
+    dayIndex: 2,
+    cityName: '长沙',
+    isFirstDayOfCity: false,
+    daysInCity: 3,
+    isLastDay: false,
+    preferences: {
+      budget: 'comfort' as const,
+      pace: 'moderate' as const,
+      accommodation: 'chain_hotel',
+      dining: [],
+      interests: ['culture'],
+    },
+    travelers: { adults: 2, children: [], elders: 0 },
+    transport: null,
+    previousDays: [],
+    departureDate: '2026-07-01',
+  };
+
+  it('LLM 返回无法解析的 JSON 时降级到 mock', async () => {
+    // LLM 返回非 JSON 纯文本
+    mockFetch.mockResolvedValueOnce(mockSuccessResponse('This is not JSON at all!'));
+
+    const result = await generateDay({ ...baseGenerateParams, forceProvider: 'deepseek' });
+
+    // 应降级到 mock
+    expect(result.timeline.length).toBeGreaterThan(0);
+    expect(result.cityName).toBe('长沙');
+  });
+
+  it('LLM 返回 timeline 缺少 estimatedDuration 时应自动补全', async () => {
+    mockFetch.mockResolvedValueOnce(
+      mockSuccessResponse(
+        JSON.stringify({
+          dayIndex: 2,
+          date: '2026-07-02',
+          dayType: 'city_exploration',
+          cityName: '长沙',
+          isFirstDayOfCity: false,
+          title: 'Day 2',
+          timeline: [
+            {
+              id: 'i1',
+              type: 'attraction',
+              title: '橘子洲',
+              startTime: '09:00',
+              endTime: '12:00',
+              // 缺少 estimatedDuration
+              energyLevel: 'LOW',
+              bookingRequired: false,
+            },
+          ],
+          tips: [],
+        }),
+      ),
+    );
+
+    const result = await generateDay({ ...baseGenerateParams, forceProvider: 'deepseek' });
+    expect(result.timeline[0].estimatedDuration).toBe(180); // 09:00→12:00 = 180 min
+  });
+
+  it('LLM 返回的 cityName 与请求不一致应被纠正', async () => {
+    mockFetch.mockResolvedValueOnce(
+      mockSuccessResponse(
+        JSON.stringify({
+          dayIndex: 2,
+          date: '2026-07-02',
+          dayType: 'city_exploration',
+          cityName: '北京', // LLM 返回错误城市
+          isFirstDayOfCity: false,
+          title: 'Day 2',
+          timeline: [
+            {
+              id: 'i1',
+              type: 'attraction',
+              title: 'Test',
+              startTime: '09:00',
+              endTime: '12:00',
+              estimatedDuration: 180,
+              estimatedCostCNY: 100,
+              energyLevel: 'LOW',
+              bookingRequired: false,
+            },
+          ],
+          tips: [],
+        }),
+      ),
+    );
+
+    const result = await generateDay({ ...baseGenerateParams, forceProvider: 'deepseek' });
+    // cityName 应被纠正为参数中的值
+    expect(result.cityName).toBe('长沙');
+  });
+
+  it('LLM 返回的 dayIndex 不一致应被纠正', async () => {
+    mockFetch.mockResolvedValueOnce(
+      mockSuccessResponse(
+        JSON.stringify({
+          dayIndex: 999, // LLM 返回错误 dayIndex
+          date: '2026-07-02',
+          dayType: 'city_exploration',
+          cityName: '长沙',
+          isFirstDayOfCity: false,
+          title: 'Day 2',
+          timeline: [
+            {
+              id: 'i1',
+              type: 'attraction',
+              title: 'Test',
+              startTime: '09:00',
+              endTime: '12:00',
+              estimatedDuration: 180,
+              estimatedCostCNY: 100,
+              energyLevel: 'LOW',
+              bookingRequired: false,
+            },
+          ],
+          tips: [],
+        }),
+      ),
+    );
+
+    const result = await generateDay({ ...baseGenerateParams, forceProvider: 'deepseek' });
+    expect(result.dayIndex).toBe(baseGenerateParams.dayIndex); // 应纠正为 2
+  });
+
+  it('economy budget 时可正常生成', async () => {
+    mockFetch.mockResolvedValueOnce(mockSuccessResponse(VALID_DAY_PLAN_JSON));
+
+    const result = await generateDay({
+      ...baseGenerateParams,
+      preferences: { ...baseGenerateParams.preferences, budget: 'economy' as const },
+      forceProvider: 'mimo', // 强制 mimo 省去路由验证
+    });
+
+    expect(result.timeline.length).toBeGreaterThan(0);
+  });
+
+  it('LLM 返回空 timeline 时也应正常返回', async () => {
+    mockFetch.mockResolvedValueOnce(
+      mockSuccessResponse(
+        JSON.stringify({
+          dayIndex: 2,
+          date: '2026-07-02',
+          dayType: 'city_exploration',
+          cityName: '长沙',
+          isFirstDayOfCity: false,
+          title: 'Day 2',
+          timeline: [],
+          tips: [],
+        }),
+      ),
+    );
+
+    const result = await generateDay({ ...baseGenerateParams, forceProvider: 'deepseek' });
+    // 空 timeline 不抛错
+    expect(Array.isArray(result.timeline)).toBe(true);
+  });
+});
+
+// ─────────────────────────────────────────────
+// Section 16: LLMAPIError providerStatusCode
+// ─────────────────────────────────────────────
+
+describe('LLMAPIError providerStatusCode', () => {
+  it('不传 providerStatusCode 时应为 undefined', () => {
+    const err = new LLMAPIError('测试错误', 'details');
+    expect(err.providerStatusCode).toBeUndefined();
+  });
+
+  it('传入 providerStatusCode 时应正确设置', () => {
+    const err = new LLMAPIError('401 错误', 'details', 401);
+    expect(err.providerStatusCode).toBe(401);
+  });
+
+  it('传入 429 时应正确设置', () => {
+    const err = new LLMAPIError('限流', 'details', 429);
+    expect(err.providerStatusCode).toBe(429);
+  });
+
+  it('传入 403 时应正确设置', () => {
+    const err = new LLMAPIError('禁止', 'details', 403);
+    expect(err.providerStatusCode).toBe(403);
+  });
+
+  it('传入 500 时应正确设置', () => {
+    const err = new LLMAPIError('服务端错误', 'details', 500);
+    expect(err.providerStatusCode).toBe(500);
+  });
+
+  it('name 应为 LLMAPIError', () => {
+    const err = new LLMAPIError();
+    expect(err.name).toBe('LLMAPIError');
+  });
+
+  it('statusCode 默认应为 502', () => {
+    const err = new LLMAPIError();
+    expect(err.statusCode).toBe(502);
+  });
+
+  it('details 可选', () => {
+    const err = new LLMAPIError('msg');
+    expect(err.details).toBeUndefined();
+  });
+});
+
+// ─────────────────────────────────────────────
+// Section 17: callWithFallback 降级链去重
+// ─────────────────────────────────────────────
+
+describe('callWithFallback 降级链去重', () => {
+  it('primary 已经是 glm 时不应在 fallback 中重复', async () => {
+    // GLM 失败 → 应直接到 Kimi（不重复尝试 GLM）
+    mockFetch.mockResolvedValueOnce(mockErrorResponse(500, 'GLM fail'));
+    mockFetch.mockResolvedValueOnce(mockSuccessResponse(VALID_DAY_PLAN_JSON));
+
+    const result = await callWithFallback('test', SYSTEM_PROMPT, 'glm');
+
+    // GLM 失败 → Kimi 成功（kimi 在 FALLBACK_CHAIN 中）
+    expect(result.provider).toBe('kimi');
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('KIMI key 未配时 GLM 失败后应抛 All providers failed', async () => {
+    vi.stubEnv('KIMI_API_KEY', '');
+    vi.stubEnv('MIMO_API_KEY', '');
+    mockFetch.mockResolvedValue(mockErrorResponse(500, 'all down'));
+
+    await expect(callWithFallback('test', SYSTEM_PROMPT, 'glm')).rejects.toThrow(
+      /All LLM providers failed/,
+    );
+  });
+
+  it('主模型成功时应只调用 1 次', async () => {
+    mockFetch.mockResolvedValueOnce(mockSuccessResponse(VALID_DAY_PLAN_JSON));
+
+    const result = await callWithFallback('test', SYSTEM_PROMPT, 'deepseek');
+    expect(result.provider).toBe('deepseek');
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(result.costCNY).toBeGreaterThanOrEqual(0);
+  });
+});
+
+// ─────────────────────────────────────────────
+// Section 18: generateWithLLM 额外错误路径
+// ─────────────────────────────────────────────
+
+describe('generateWithLLM 额外错误路径', () => {
+  it('API 返回空 choices 数组应抛出', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        choices: [],
+        usage: { prompt_tokens: 10, completion_tokens: 0, total_tokens: 10 },
+      }),
+    } as unknown as Response);
+
+    await expect(generateWithLLM('test', SYSTEM_PROMPT, 'deepseek')).rejects.toThrow(
+      /Unexpected response structure/,
+    );
+  });
+
+  it('API 返回缺少 choices 字段应抛出', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        id: 'no-choices',
+        usage: { prompt_tokens: 10, completion_tokens: 0, total_tokens: 10 },
+      }),
+    } as unknown as Response);
+
+    await expect(generateWithLLM('test', SYSTEM_PROMPT, 'deepseek')).rejects.toThrow(
+      /Unexpected response structure/,
+    );
+  });
+
+  it('API 返回 message 为 null 应抛出', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        choices: [{ message: null, finish_reason: 'stop' }],
+      }),
+    } as unknown as Response);
+
+    await expect(generateWithLLM('test', SYSTEM_PROMPT, 'deepseek')).rejects.toThrow(
+      /Empty or invalid/,
+    );
+  });
+
+  it('API 返回 content 为非字符串应抛出', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        choices: [{ message: { content: 12345 }, finish_reason: 'stop' }],
+      }),
+    } as unknown as Response);
+
+    await expect(generateWithLLM('test', SYSTEM_PROMPT, 'deepseek')).rejects.toThrow(
+      /Empty or invalid/,
+    );
+  });
+
+  it('API 返回 content 仅包含空白符应抛出', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        choices: [{ message: { content: '   \t\n  ' }, finish_reason: 'stop' }],
+      }),
+    } as unknown as Response);
+
+    await expect(generateWithLLM('test', SYSTEM_PROMPT, 'deepseek')).rejects.toThrow(
+      /Empty or invalid/,
+    );
+  });
+
+  it('response body 缺少 usage 时应返回 0 token 统计', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        choices: [{ message: { content: '{"result":"ok"}' }, finish_reason: 'stop' }],
+        // 没有 usage 字段
+      }),
+    } as unknown as Response);
+
+    const result = await generateWithLLM('test', SYSTEM_PROMPT, 'deepseek');
+    expect(result.tokens.input).toBe(0);
+    expect(result.tokens.output).toBe(0);
+    expect(result.costCNY).toBe(0);
+  });
+
+  it('API 返回 500 时应正确格式化错误消息', async () => {
+    mockFetch.mockResolvedValueOnce(mockErrorResponse(500, 'Internal error'));
+
+    await expect(generateWithLLM('test', SYSTEM_PROMPT, 'deepseek')).rejects.toThrow(/API error/);
+  });
+
+  it('非标准 HTTP 错误码（如 502 Bad Gateway）应正确格式化', async () => {
+    mockFetch.mockResolvedValueOnce(mockErrorResponse(502, 'Bad gateway'));
+
+    await expect(generateWithLLM('test', SYSTEM_PROMPT, 'deepseek')).rejects.toThrow(/API error/);
+  });
+
+  it('modelOverride 参数应覆盖默认模型', async () => {
+    mockFetch.mockResolvedValueOnce(mockSuccessResponse(VALID_DAY_PLAN_JSON));
+
+    await generateWithLLM('test', SYSTEM_PROMPT, 'deepseek', 'deepseek-v3');
+
+    const requestBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect(requestBody.model).toBe('deepseek-v3');
+  });
+});
+
+// ─────────────────────────────────────────────
+// Section 19: saveTrip 容量上限
+// ─────────────────────────────────────────────
+
+describe('saveTrip 容量上限', () => {
+  const capPrefix = 'cap_' + Date.now().toString(36) + '_';
+  it('存储超过 MAX_TRIPS (100) 时应驱逐最早的条目', async () => {
+    // 使用唯一前缀，先保存 100 条确保首次
+    for (let i = 0; i < 100; i++) {
+      const trip = makeTrip({ tripId: capPrefix + String(i).padStart(4, '0') });
+      saveTrip(trip);
+    }
+    // 第 1 条应存在
+    expect(await getTrip(capPrefix + '0000')).not.toBeNull();
+
+    // 保存第 101 条，应驱逐最早的那条
+    saveTrip(makeTrip({ tripId: capPrefix + '0100' }));
+
+    // 最早的应已被驱逐
+    expect(await getTrip(capPrefix + '0000')).toBeNull();
+    // 最新的应存在
+    expect(await getTrip(capPrefix + '0100')).not.toBeNull();
+  });
+
+  it('保存后应能立即查询（容量测试基础验证）', async () => {
+    const tid = capPrefix + 'basic';
+    const trip = makeTrip({ tripId: tid });
+    saveTrip(trip);
+    const found = await getTrip(tid);
+    expect(found).not.toBeNull();
+    expect(found!.tripId).toBe(tid);
+  });
+});

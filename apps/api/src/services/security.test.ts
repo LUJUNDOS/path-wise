@@ -180,6 +180,56 @@ describe('S1: API Key 认证（prompt.service 输入清洗覆盖）', () => {
     // 不应抛出异常
     expect(prompt).toBeTruthy();
   });
+
+  it('含制表符和换行符的恶意输入应被清洗', () => {
+    const malicious = '\t\n\r恶意\x00输入';
+    const prompt = buildDayGenerationPrompt({
+      cityName: malicious,
+      dayIndex: 1,
+      date: '2026-07-01',
+      isFirstDayOfCity: true,
+      daysInCity: 2,
+      preferences: {
+        budget: 'comfort' as const,
+        pace: 'moderate' as const,
+        accommodation: 'chain_hotel',
+        dining: [],
+        interests: [],
+      },
+      travelers: { adults: 1, children: [], elders: 0 },
+      transport: null,
+      cityData: null,
+      previousDays: [],
+    });
+    expect(prompt).not.toContain('\x00');
+    expect(prompt).not.toContain('\t');
+  });
+
+  it('多条目兴趣清洗（仅最后一个被截断）', () => {
+    const short = '短'.repeat(5);
+    const long = '长'.repeat(150);
+    const prompt = buildDayGenerationPrompt({
+      cityName: '长沙',
+      dayIndex: 1,
+      date: '2026-07-01',
+      isFirstDayOfCity: true,
+      daysInCity: 2,
+      preferences: {
+        budget: 'comfort' as const,
+        pace: 'moderate' as const,
+        accommodation: 'chain_hotel',
+        dining: [],
+        interests: [short, long],
+      },
+      travelers: { adults: 1, children: [], elders: 0 },
+      transport: null,
+      cityData: null,
+      previousDays: [],
+    });
+    expect(prompt).toContain(short);
+    expect(prompt).not.toContain('长'.repeat(150));
+    expect(prompt).toContain('长'.repeat(100));
+  });
 });
 
 // ─────────────────────────────────────────────
@@ -382,9 +432,9 @@ describe('S5: LLM 输出校验（通过 generateDay 间接测试）', () => {
   });
 
   it('LLM 返回超长 title 应截断到 500', async () => {
-    const mockFetch = vi.mocked(globalThis.fetch);
+    const mockFetchLocal = vi.mocked(globalThis.fetch);
     const longTitle = 'T'.repeat(600);
-    mockFetch.mockResolvedValueOnce({
+    mockFetchLocal.mockResolvedValueOnce({
       ok: true,
       status: 200,
       json: async () => ({
@@ -426,9 +476,9 @@ describe('S5: LLM 输出校验（通过 generateDay 间接测试）', () => {
   });
 
   it('LLM 返回超长 description 应截断到 1000', async () => {
-    const mockFetch = vi.mocked(globalThis.fetch);
+    const mockFetchLocal = vi.mocked(globalThis.fetch);
     const longDesc = 'D'.repeat(1200);
-    mockFetch.mockResolvedValueOnce({
+    mockFetchLocal.mockResolvedValueOnce({
       ok: true,
       status: 200,
       json: async () => ({
@@ -468,6 +518,150 @@ describe('S5: LLM 输出校验（通过 generateDay 间接测试）', () => {
 
     const result = await generateDay({ ...baseParams, forceProvider: 'deepseek' });
     expect(result.timeline[0].description!.length).toBeLessThanOrEqual(1000);
+  });
+
+  it('费用为 NaN 时应修复为 0', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                dayIndex: 2,
+                date: '2026-07-02',
+                dayType: 'city_exploration',
+                cityName: '长沙',
+                isFirstDayOfCity: false,
+                title: 'Day 2',
+                timeline: [
+                  {
+                    id: 'i1',
+                    type: 'attraction',
+                    title: 'Test',
+                    startTime: '09:00',
+                    endTime: '12:00',
+                    estimatedDuration: 180,
+                    estimatedCostCNY: 'not-a-number',
+                    energyLevel: 'LOW',
+                    bookingRequired: false,
+                  },
+                ],
+                tips: [],
+              }),
+            },
+            finish_reason: 'stop',
+          },
+        ],
+        usage: { prompt_tokens: 100, completion_tokens: 100, total_tokens: 200 },
+      }),
+    } as unknown as Response);
+
+    const result = await generateDay({ ...baseParams, forceProvider: 'deepseek' });
+    expect(result.timeline[0].estimatedCostCNY).toBe(0);
+  });
+
+  it('费用为 10000 边界值不触发限制', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                dayIndex: 2,
+                date: '2026-07-02',
+                dayType: 'city_exploration',
+                cityName: '长沙',
+                isFirstDayOfCity: false,
+                title: 'Day 2',
+                timeline: [
+                  {
+                    id: 'i1',
+                    type: 'attraction',
+                    title: 'Test',
+                    startTime: '09:00',
+                    endTime: '12:00',
+                    estimatedDuration: 180,
+                    estimatedCostCNY: 10000,
+                    energyLevel: 'LOW',
+                    bookingRequired: false,
+                  },
+                ],
+                tips: [],
+              }),
+            },
+            finish_reason: 'stop',
+          },
+        ],
+        usage: { prompt_tokens: 100, completion_tokens: 100, total_tokens: 200 },
+      }),
+    } as unknown as Response);
+
+    const result = await generateDay({ ...baseParams, forceProvider: 'deepseek' });
+    // 10000 不大于 10000，不触发限制
+    expect(result.timeline[0].estimatedCostCNY).toBe(10000);
+  });
+});
+
+// ─────────────────────────────────────────────
+// S3: sanitizeLog 日志清洗（间接通过 generateDay 未知城市测试）
+// ─────────────────────────────────────────────
+
+describe('S3: sanitizeLog 日志清洗', () => {
+  it('正常城市名应正常记录（无警告抛出）', async () => {
+    // 通过生成未知城市触发 sanitizeLog
+    mockFetch.mockRejectedValueOnce(new Error('Network error'));
+
+    const result = await generateDay({
+      dayIndex: 1,
+      cityName: '火星测试',
+      isFirstDayOfCity: true,
+      daysInCity: 2,
+      isLastDay: false,
+      preferences: {
+        budget: 'comfort' as const,
+        pace: 'moderate' as const,
+        accommodation: 'chain_hotel',
+        dining: [],
+        interests: [],
+      },
+      travelers: { adults: 1, children: [], elders: 0 },
+      transport: null,
+      previousDays: [],
+      departureDate: '2026-07-01',
+    });
+
+    // 降级到 mock 数据
+    expect(result.timeline.length).toBeGreaterThan(0);
+  });
+
+  it('含控制字符的城市名应被清洗后记录', async () => {
+    mockFetch.mockRejectedValueOnce(new Error('Network error'));
+
+    // 不应抛出异常（sanitizeLog 会清洗控制字符后记录）
+    await expect(
+      generateDay({
+        dayIndex: 1,
+        cityName: '恶意\x00输入',
+        isFirstDayOfCity: true,
+        daysInCity: 2,
+        isLastDay: false,
+        preferences: {
+          budget: 'comfort' as const,
+          pace: 'moderate' as const,
+          accommodation: 'chain_hotel',
+          dining: [],
+          interests: [],
+        },
+        travelers: { adults: 1, children: [], elders: 0 },
+        transport: null,
+        previousDays: [],
+        departureDate: '2026-07-01',
+      }),
+    ).resolves.toBeDefined();
   });
 });
 
