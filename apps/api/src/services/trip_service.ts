@@ -20,6 +20,7 @@ import type {
 } from '@path-wise/shared';
 
 import { CITY_DATA, type CityData, type CityTransport } from '../data/mock_cities.js';
+import { clockTimeToMinutes } from '../utils/time_utils.js';
 
 // ─────────────────────────────────────────────
 // 重新导出（向后兼容）
@@ -93,6 +94,7 @@ export async function regenerateDay(
  * @param daysInCity - 该城市总天数
  * @param prefs - 偏好设置
  * @param transport - 前往该城市的交通信息（第一个城市和后续城市不同）
+ * @param departureDate - 出发日期 (YYYY-MM-DD)，默认 2026-07-01
  */
 export function generateMockDay(
   dayIndex: number,
@@ -101,11 +103,22 @@ export function generateMockDay(
   daysInCity: number,
   prefs?: TripGenerateRequest['preferences'],
   transport?: CityTransport | null,
+  departureDate?: string,
 ): DayPlan {
   const dayType = isFirstDayOfCity ? 'transit_departure' : 'city_exploration';
-  const date = new Date(2026, 6, dayIndex);
+  // 基于用户出发日期计算每日日期（与 generateDay 保持一致）
+  const baseDate = departureDate ? new Date(departureDate) : new Date(2026, 6, 1);
+  const date = new Date(baseDate);
+  date.setDate(baseDate.getDate() + dayIndex - 1);
   const dateStr = date.toISOString().slice(0, 10);
   const data = CITY_DATA[cityName] ?? CITY_DATA.长沙;
+
+  // H5: 城市不在知识库时记录警告
+  if (!CITY_DATA[cityName]) {
+    console.warn(
+      `[generateMockDay] City "${cityName}" not found in CITY_DATA, falling back to 长沙`,
+    );
+  }
 
   // 每天选不同的景点（根据 dayIndex 轮转）
   const attrIndex = (dayIndex - 1) % data.attractions.length;
@@ -228,7 +241,13 @@ export function generateMockDay(
   const accommodation: AccommodationOption | null = isFirstDayOfCity
     ? {
         checkInDate: dateStr,
-        checkOutDate: new Date(2026, 6, dayIndex + daysInCity).toISOString().slice(0, 10),
+        checkOutDate: new Date(
+          baseDate.getFullYear(),
+          baseDate.getMonth(),
+          baseDate.getDate() + dayIndex - 1 + daysInCity,
+        )
+          .toISOString()
+          .slice(0, 10),
         nights: daysInCity,
         primary,
         backup,
@@ -286,7 +305,7 @@ export interface GenerateDayParams {
  * @param params - 生成参数
  * @returns DayPlan
  */
-export async function generateDayWithLLMFallback(params: GenerateDayParams): Promise<DayPlan> {
+export async function generateDay(params: GenerateDayParams): Promise<DayPlan> {
   const {
     dayIndex,
     cityName,
@@ -309,12 +328,20 @@ export async function generateDayWithLLMFallback(params: GenerateDayParams): Pro
   // 获取城市知识库数据
   const cityData = CITY_DATA[cityName] ?? null;
 
+  // H5: 城市知识库数据缺失时记录警告
+  if (!cityData) {
+    console.warn(
+      `[generateDay] City "${cityName}" not found in CITY_DATA, LLM will have no local knowledge data`,
+    );
+  }
+
   // 动态导入 Prompt 服务（避免循环依赖）
-  const { buildSystemPrompt, buildDayGenerationPrompt } = await import('./prompt.service.js');
+  const { SYSTEM_PROMPT } = await import('./prompt.service.js');
+  const { buildDayGenerationPrompt } = await import('./prompt.service.js');
   const { routeLLM, callWithFallback } = await import('../adapters/llm_router.js');
 
   // 构建 Prompt
-  const systemPrompt = buildSystemPrompt();
+  const systemPrompt = SYSTEM_PROMPT;
   const userPrompt = buildDayGenerationPrompt({
     cityName,
     dayIndex,
@@ -345,6 +372,18 @@ export async function generateDayWithLLMFallback(params: GenerateDayParams): Pro
 
     // 解析 JSON
     const dayPlan = JSON.parse(result.text) as DayPlan;
+
+    // H9: 检查 LLM 输出的字段是否与预期一致（帮助调试 Prompt 质量）
+    if (dayPlan.cityName && dayPlan.cityName !== cityName) {
+      console.warn(
+        `[generateDay] LLM returned cityName "${dayPlan.cityName}" but expected "${cityName}"`,
+      );
+    }
+    if (dayPlan.dayIndex !== undefined && dayPlan.dayIndex !== dayIndex) {
+      console.warn(
+        `[generateDay] LLM returned dayIndex ${dayPlan.dayIndex} but expected ${dayIndex}`,
+      );
+    }
 
     // 确保必填字段和索引正确
     dayPlan.dayIndex = dayIndex;
@@ -379,17 +418,7 @@ export async function generateDayWithLLMFallback(params: GenerateDayParams): Pro
       daysInCity,
       preferences,
       transport,
+      departureDate,
     );
   }
 }
-
-/** HH:MM 转分钟数 */
-function clockTimeToMinutes(time: string): number {
-  const [h, m] = time.split(':').map(Number);
-  return h * 60 + (m || 0);
-}
-
-/**
- * @deprecated 使用 generateDayWithLLMFallback 代替
- */
-export const generateDay = generateDayWithLLMFallback;

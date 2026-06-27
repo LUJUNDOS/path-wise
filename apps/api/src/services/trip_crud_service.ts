@@ -13,14 +13,16 @@ const MAX_TRIPS = 100;
 
 /**
  * 保存已生成的攻略到内存
- * 超出容量上限时移除最早的条目
+ * 先 set 再检查容量，超出上限时移除最早的条目
+ * 保证即使在并发访问下也不会超出 MAX_TRIPS + 1
  */
 export function saveTrip(trip: TripResponse): void {
-  if (tripStore.size >= MAX_TRIPS) {
+  tripStore.set(trip.tripId, trip);
+  // 先 set 后 evict，保证容量检查在插入之后
+  if (tripStore.size > MAX_TRIPS) {
     const firstKey = tripStore.keys().next().value;
     if (firstKey) tripStore.delete(firstKey);
   }
-  tripStore.set(trip.tripId, trip);
 }
 
 /**
@@ -32,6 +34,7 @@ export async function getTrip(tripId: string): Promise<TripResponse | null> {
 
 /**
  * 查询攻略列表
+ * @todo 将内存存储迁移到 Prisma 时实现，用户维度的分页查询
  */
 export async function listTrips(_userId: string): Promise<TripSummary[]> {
   // MVP stub
@@ -40,6 +43,7 @@ export async function listTrips(_userId: string): Promise<TripSummary[]> {
 
 /**
  * 查询单天行程
+ * @todo 从 Prisma 查询单日行程详情，含 timeline 和 accommodation
  */
 export async function getDayPlan(_tripId: string, _dayIndex: number): Promise<unknown | null> {
   // MVP stub
@@ -48,6 +52,7 @@ export async function getDayPlan(_tripId: string, _dayIndex: number): Promise<un
 
 /**
  * 修改单天行程
+ * @todo 写入 Prisma 并返回 dayIndex 索引的更新后行程数据
  */
 export async function updateDayPlan(
   _tripId: string,
@@ -63,6 +68,7 @@ export async function updateDayPlan(
 
 /**
  * 删除攻略
+ * @todo 从 Prisma 软删除攻略及其关联数据
  */
 export async function deleteTrip(_tripId: string): Promise<{ deletedAt: string }> {
   return { deletedAt: new Date().toISOString() };

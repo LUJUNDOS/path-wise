@@ -44,14 +44,41 @@ export function extractJSON(rawOutput: string): string {
     }
   }
 
-  // 尝试 4：提取第一个 { ... } 对象（非贪婪匹配不行，用贪婪）
-  const jsonObjectMatch = trimmed.match(/\{[\s\S]*\}/);
-  if (jsonObjectMatch) {
-    try {
-      JSON.parse(jsonObjectMatch[0]);
-      return jsonObjectMatch[0];
-    } catch {
-      // 继续尝试
+  // 尝试 4：使用括号计数（bracket counting）精确提取第一个完整 JSON 对象
+  // 避免贪婪正则 \{[\s\S]*\} 跨多个 JSON 对象匹配的问题
+  const firstBrace = trimmed.indexOf('{');
+  if (firstBrace !== -1) {
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+    for (let i = firstBrace; i < trimmed.length; i++) {
+      const ch = trimmed[i];
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      if (ch === '\\' && inString) {
+        escaped = true;
+        continue;
+      }
+      if (ch === '"') {
+        inString = !inString;
+        continue;
+      }
+      if (inString) continue;
+      if (ch === '{') depth++;
+      else if (ch === '}') {
+        depth--;
+        if (depth === 0) {
+          const candidate = trimmed.slice(firstBrace, i + 1);
+          try {
+            JSON.parse(candidate);
+            return candidate;
+          } catch {
+            break;
+          }
+        }
+      }
     }
   }
 

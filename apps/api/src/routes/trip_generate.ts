@@ -21,6 +21,9 @@ import { createSSEStream } from '../utils/sseStream.js';
 import type { SSEStream } from '../utils/sseStream.js';
 import { successResponse, errorResponse } from '../utils/response.js';
 
+/** 日均杂费（当地交通、零食、纪念品等零散开销，单位 CNY） */
+const DAILY_MISC_COST_CNY = 200;
+
 /** 计算多天行程总花费（timeline 花费 + 住宿 + 日均杂费） */
 function computeTotalCost(days: DayPlan[]): number {
   return (
@@ -33,7 +36,7 @@ function computeTotalCost(days: DayPlan[]): number {
         dayCost += day.accommodation.primary.pricePerNight;
       }
       return sum + dayCost;
-    }, 0) + Math.round(days.length * 200)
+    }, 0) + Math.round(days.length * DAILY_MISC_COST_CNY)
   );
 }
 
@@ -65,6 +68,7 @@ function buildTripResponse(
 async function generateAllDays(
   body: TripGenerateRequest,
   sse: SSEStream,
+  reply: FastifyReply,
   totalDays: number,
 ): Promise<DayPlan[]> {
   let dayIndex = 1;
@@ -80,7 +84,7 @@ async function generateAllDays(
         : getMockTransport(prevCity, dest.cityName);
 
     for (let d = 0; d < dest.days; d++) {
-      sse.send('progress', {
+      safeSSESend(sse, reply, 'progress', {
         step: dayIndex,
         totalSteps: totalDays,
         percent: Math.round((dayIndex / totalDays) * 100),
@@ -104,30 +108,14 @@ async function generateAllDays(
         });
 
         days.push(day);
-        sse.send('day_ready', { dayIndex, day });
+        safeSSESend(sse, reply, 'day_ready', { dayIndex, day });
       } catch (dayError: unknown) {
-        const errMsg = dayError instanceof Error ? dayError.message : '未知错误';
-        if (days.length > 0) {
-          const tripResponse = buildTripResponse(days, body, totalDays, 'partial');
-          saveTrip(tripResponse);
-          sse.send('done', {
-            tripId: tripResponse.tripId,
-            partial: true,
-            totalProcessingTimeSeconds: 0,
-            totalEstimatedCostCNY: tripResponse.totalEstimatedCostCNY,
-            summary: `仅生成 ${days.length}/${totalDays} 天行程（第 ${dayIndex} 天失败），预计花费约 ¥${tripResponse.totalEstimatedCostCNY}`,
-          });
+        // 客户端断开连接 — 不是 LLM 失败，清理并静默退出
+        if (dayError instanceof ClientDisconnectError) {
+          return days;
         }
-        sse.send('error', {
-          code: ErrorCode.TRIP_GENERATION_FAILED,
-          message: `第 ${dayIndex} 天行程生成失败: ${errMsg}`,
-          details: errMsg,
-          retryable: true,
-          retryAfterSeconds: 10,
-        });
-        sse.end();
-        // 抛出特殊标记，让外层 handler 跳过正常完成流程
-        throw new DayGenerationAbortedError();
+        const errMsg = dayError instanceof Error ? dayError.message : '未知错误';
+        handleDayGenerationError(days, body, sse, totalDays, dayIndex, errMsg);
       }
 
       dayIndex++;
@@ -137,12 +125,66 @@ async function generateAllDays(
   return days;
 }
 
-/** 内部标记：天生成失败中止（非系统异常） */
-class DayGenerationAbortedError extends Error {
+/** 当某天生成失败但已有部分天完成时，发送 partial 结果并抛出此标记终止生成 */
+class DayGenerationPartialCompletion extends Error {
   constructor() {
-    super('DAY_GENERATION_ABORTED');
-    this.name = 'DayGenerationAbortedError';
+    super('DAY_GENERATION_PARTIAL_COMPLETION');
+    this.name = 'DayGenerationPartialCompletion';
   }
+}
+
+/** 客户端断开连接错误 — 与 LLM 失败区分开来 */
+class ClientDisconnectError extends Error {
+  constructor() {
+    super('Client disconnected');
+    this.name = 'ClientDisconnectError';
+  }
+}
+
+/**
+ * 安全发送 SSE 事件，客户端已断开时抛出 ClientDisconnectError
+ * 避免将连接断开误判为 LLM 生成失败
+ */
+function safeSSESend(sse: SSEStream, reply: FastifyReply, event: string, data: unknown): void {
+  // 检查底层 writable 是否仍然可用
+  if (reply.raw.writableEnded || reply.raw.destroyed) {
+    throw new ClientDisconnectError();
+  }
+  sse.send(event as Parameters<SSEStream['send']>[0], data);
+}
+
+/**
+ * 处理单天生成失败：保存已有进度、发送 partial done 和 error 事件
+ * @returns 永远不返回（抛出 DayGenerationPartialCompletion）
+ */
+function handleDayGenerationError(
+  daysSoFar: DayPlan[],
+  body: TripGenerateRequest,
+  sse: SSEStream,
+  totalDays: number,
+  failedDayIndex: number,
+  errMsg: string,
+): never {
+  if (daysSoFar.length > 0) {
+    const tripResponse = buildTripResponse(daysSoFar, body, totalDays, 'partial');
+    saveTrip(tripResponse);
+    sse.send('done', {
+      tripId: tripResponse.tripId,
+      partial: true,
+      totalProcessingTimeSeconds: 0,
+      totalEstimatedCostCNY: tripResponse.totalEstimatedCostCNY,
+      summary: `仅生成 ${daysSoFar.length}/${totalDays} 天行程（第 ${failedDayIndex} 天失败），预计花费约 ¥${tripResponse.totalEstimatedCostCNY}`,
+    });
+  }
+  sse.send('error', {
+    code: ErrorCode.TRIP_GENERATION_FAILED,
+    message: `第 ${failedDayIndex} 天行程生成失败: ${errMsg}`,
+    details: errMsg,
+    retryable: true,
+    retryAfterSeconds: 10,
+  });
+  sse.end();
+  throw new DayGenerationPartialCompletion();
 }
 
 export async function tripGenerateRoutes(fastify: FastifyInstance): Promise<void> {
@@ -181,7 +223,7 @@ export async function tripGenerateRoutes(fastify: FastifyInstance): Promise<void
     });
 
     try {
-      const days = await generateAllDays(body, sse, totalDays);
+      const days = await generateAllDays(body, sse, reply, totalDays);
 
       // 完成
       const tripResponse = buildTripResponse(days, body, totalDays, 'completed');
@@ -195,8 +237,12 @@ export async function tripGenerateRoutes(fastify: FastifyInstance): Promise<void
       saveTrip(tripResponse);
       sse.end();
     } catch (error: unknown) {
-      if (error instanceof DayGenerationAbortedError) {
+      if (error instanceof DayGenerationPartialCompletion) {
         // 错误已在 generateAllDays 内部发送，不需要额外处理
+        return;
+      }
+      if (error instanceof ClientDisconnectError) {
+        // 客户端已断开，不尝试发送任何 SSE 事件
         return;
       }
       const errMsg = error instanceof Error ? error.message : '未知错误';

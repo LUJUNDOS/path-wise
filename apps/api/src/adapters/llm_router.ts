@@ -103,6 +103,34 @@ const PROVIDER_REGISTRY: Record<LLMProvider, ProviderRegistryEntry> = {
 // 降级链（来自 docs/LLM调用最佳实践文档 §6.2）
 // ─────────────────────────────────────────────
 
+/**
+ * 启动时校验提供商 API Key 配置
+ * 至少 2 个提供商配置了 Key 才满足降级链的基本要求
+ *
+ * @returns 已配置和未配置的提供商列表
+ */
+export function validateProviderConfig(): {
+  configured: LLMProvider[];
+  missing: LLMProvider[];
+} {
+  const configured: LLMProvider[] = [];
+  const missing: LLMProvider[] = [];
+  for (const [provider, entry] of Object.entries(PROVIDER_REGISTRY)) {
+    if (process.env[entry.apiKeyEnv]) {
+      configured.push(provider as LLMProvider);
+    } else {
+      missing.push(provider as LLMProvider);
+    }
+  }
+  if (configured.length < 2) {
+    console.warn(
+      `[llm_router] Only ${configured.length}/${Object.keys(PROVIDER_REGISTRY).length} LLM providers configured (${configured.join(', ') || 'none'}). ` +
+        `Fallback chain may be degraded. Missing: ${missing.join(', ')}`,
+    );
+  }
+  return { configured, missing };
+}
+
 const FALLBACK_CHAIN: LLMProvider[] = ['glm', 'kimi'];
 
 // ─────────────────────────────────────────────
@@ -286,18 +314,37 @@ export async function generateWithLLM(
 // 降级调用链（来自 docs/LLM调用最佳实践文档 §6.3）
 // ─────────────────────────────────────────────
 
+/** 可重试错误判断结果 */
+interface RetriableCheckResult {
+  /** 是否可在当前提供商上重试 */
+  retriable: boolean;
+  /** 是否应跳过当前提供商（不再重试） */
+  skipProvider: boolean;
+}
+
 /**
  * 判断错误是否可重试
+ * - 401/403 认证错误：不可重试同一提供商，立即跳下一个
+ * - timeout/429 限流：可重试同一提供商
+ * - 其他错误：不可重试，跳下一个
  */
-function isRetriableError(error: unknown): boolean {
+function isRetriableError(error: unknown): RetriableCheckResult {
   if (error instanceof Error) {
-    return (
+    // 401/403 认证错误 — 重试同一提供商也没用，直接跳过
+    if (error.message.includes('Authentication failed')) {
+      return { retriable: false, skipProvider: true };
+    }
+    // timeout / 429 限流 — 可以在同一提供商上重试
+    if (
       error.message.includes('timeout') ||
       error.message.includes('Rate limited') ||
       error.name === 'AbortError'
-    );
+    ) {
+      return { retriable: true, skipProvider: false };
+    }
   }
-  return false;
+  // 其他错误：不可重试当前提供商
+  return { retriable: false, skipProvider: false };
 }
 
 /** 延迟工具 */
@@ -325,6 +372,8 @@ export async function callWithFallback(
   const fallbackChain = [primaryProvider, ...FALLBACK_CHAIN.filter((m) => m !== primaryProvider)];
 
   const errors: string[] = [];
+  /** 保留最后一个 LLMAPIError 用于向上传递 details */
+  let lastLLMAPIError: unknown = null;
 
   for (let i = 0; i < fallbackChain.length; i++) {
     const provider = fallbackChain[i];
@@ -348,12 +397,35 @@ export async function callWithFallback(
         return result;
       } catch (error: unknown) {
         const errMsg = error instanceof Error ? error.message : String(error);
+        const checkResult = isRetriableError(error);
 
-        if (!isRetriableError(error) || retry === retryConfig.maxRetries - 1) {
+        // 保存最后一个 LLMAPIError 以便最终抛出时携带详情
+        if (error instanceof LLMAPIError) {
+          lastLLMAPIError = error;
+        }
+
+        // 401/403 认证错误 — 立即跳过当前提供商
+        if (checkResult.skipProvider) {
           errors.push(
-            `[${provider}] Failed (retry ${retry + 1}/${retryConfig.maxRetries}): ${errMsg}`,
+            `[${provider}] Auth error, skipping provider (retry ${retry + 1}/${retryConfig.maxRetries}): ${errMsg}`,
           );
           break; // 切换到下一个模型
+        }
+
+        // 不可重试的非可跳过错误 — 直接跳到下一个模型
+        if (!checkResult.retriable) {
+          errors.push(
+            `[${provider}] Non-retriable error (retry ${retry + 1}/${retryConfig.maxRetries}): ${errMsg}`,
+          );
+          break; // 切换到下一个模型
+        }
+
+        // 可重试错误，但已达最大重试次数
+        if (retry === retryConfig.maxRetries - 1) {
+          errors.push(
+            `[${provider}] Max retries exhausted (${retry + 1}/${retryConfig.maxRetries}): ${errMsg}`,
+          );
+          break;
         }
 
         // 指数退避重试
@@ -364,6 +436,12 @@ export async function callWithFallback(
     }
   }
 
-  // 所有模型都失败
-  throw new LLMAPIError('All LLM providers failed', `Errors:\n${errors.join('\n')}`);
+  // 所有模型都失败 — 携带最后一个 LLMAPIError 的 details
+  const lastDetail = lastLLMAPIError instanceof LLMAPIError ? lastLLMAPIError.details : undefined;
+  throw new LLMAPIError(
+    'All LLM providers failed',
+    lastDetail
+      ? `${lastDetail}\n---\nErrors:\n${errors.join('\n')}`
+      : `Errors:\n${errors.join('\n')}`,
+  );
 }
