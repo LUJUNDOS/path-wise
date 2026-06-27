@@ -55,10 +55,8 @@ export function validateHomeForm(data: FormData): ValidationError[] {
   if (!data.departureDate) {
     errors.push({ field: 'departureDate', message: '请选择出发日期' });
   } else {
-    const selected = new Date(data.departureDate);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    if (selected < today) {
+    const today = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD" UTC
+    if (data.departureDate < today) {
       errors.push({ field: 'departureDate', message: '出发日期不能选过去的日期' });
     }
   }
@@ -89,10 +87,8 @@ export function validateField(
       return null;
     case 'departureDate': {
       if (!value) return { field, message: '请选择出发日期' };
-      const selected = new Date(value as string);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      if (selected < today) return { field, message: '出发日期不能选过去的日期' };
+      const today = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD" UTC
+      if ((value as string) < today) return { field, message: '出发日期不能选过去的日期' };
       return null;
     }
     case 'adults':

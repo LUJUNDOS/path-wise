@@ -187,4 +187,249 @@
     background-size: 256px 256px;
     z-index: 1;
   }
+
+  /* ═══════════════════════════════════════════════
+     TRIP WIZARD · Theme Variants
+     ═══════════════════════════════════════════════ */
+
+  /* Shared wizard tokens (fallbacks) */
+  .trip-wizard {
+    --wz-card-bg: hsl(40 20% 99%);
+    --wz-card-border: hsl(36 10% 82%);
+    --wz-title-font: theme('fontFamily.display');
+    --wz-rule-color: hsl(36 10% 78%);
+    --wz-icon-bg: hsl(30 91% 42% / 0.1);
+    --wz-icon-fg: hsl(30 91% 42%);
+    --wz-step-dot-size: 0.625rem;
+    --wz-step-line-color: hsl(36 10% 82%);
+    --wz-step-active-color: hsl(30 91% 42%);
+    --wz-step-done-color: hsl(30 91% 42%);
+  }
+
+  /* ── A. Editorial · 深耕编辑美学 ── */
+  .trip-wizard.theme-editorial {
+    --wz-card-bg: hsl(40 20% 99%);
+    --wz-card-border: hsl(36 10% 78%);
+    --wz-title-font: theme('fontFamily.display');
+    --wz-rule-color: hsl(36 10% 78%);
+    --wz-icon-bg: hsl(30 91% 42% / 0.1);
+    --wz-icon-fg: hsl(30 91% 42%);
+    --wz-step-line-color: hsl(36 10% 78%);
+    --wz-step-active-color: hsl(30 91% 42%);
+    --wz-step-done-color: hsl(30 91% 42%);
+  }
+
+  /* ── B. Minimalist · 极简克制 ── */
+  .trip-wizard.theme-minimal {
+    --wz-card-bg: transparent;
+    --wz-card-border: transparent;
+    --wz-title-font: theme('fontFamily.sans');
+    --wz-rule-color: transparent;
+    --wz-icon-bg: transparent;
+    --wz-icon-fg: hsl(30 91% 42%);
+    --wz-step-line-color: hsl(36 10% 88%);
+    --wz-step-active-color: hsl(30 91% 42%);
+    --wz-step-done-color: hsl(30 30% 60%);
+  }
+
+  /* ── C. Immersive Dark · 沉浸暗色 ── */
+  .trip-wizard.theme-dark {
+    --wz-card-bg: hsl(30 8% 13%);
+    --wz-card-border: hsl(30 6% 24%);
+    --wz-title-font: theme('fontFamily.display');
+    --wz-rule-color: hsl(30 6% 24%);
+    --wz-icon-bg: hsl(34 92% 54% / 0.15);
+    --wz-icon-fg: hsl(34 92% 54%);
+    --wz-step-line-color: hsl(30 6% 24%);
+    --wz-step-active-color: hsl(34 92% 54%);
+    --wz-step-done-color: hsl(34 92% 54%);
+  }
+
+  /* ═══════════════════════════════════════════════
+     WIZARD · Step Transitions
+     ═══════════════════════════════════════════════ */
+
+  .wizard-step {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transform: translateX(32px);
+    transition:
+      opacity 0.4s cubic-bezier(0.22, 0.61, 0.36, 1),
+      transform 0.4s cubic-bezier(0.22, 0.61, 0.36, 1);
+    pointer-events: none;
+  }
+
+  .wizard-step--active {
+    position: relative;
+    opacity: 1;
+    transform: translateX(0);
+    pointer-events: auto;
+    transition-delay: 0.08s;
+  }
+
+  .wizard-step--exit-left {
+    opacity: 0;
+    transform: translateX(-32px);
+  }
+
+  .wizard-step--exit-right {
+    opacity: 0;
+    transform: translateX(32px);
+  }
+
+  .wizard-step--enter-left {
+    position: relative;
+    opacity: 1;
+    transform: translateX(0);
+    pointer-events: auto;
+    transition-delay: 0.08s;
+  }
+
+  /* ═══════════════════════════════════════════════
+     ROUTE ANIMATION · SVG path draw
+     ═══════════════════════════════════════════════ */
+
+  @keyframes route-draw {
+    0% {
+      stroke-dashoffset: 290;
+    }
+    100% {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  .route-path {
+    stroke-dasharray: 290;
+    stroke-dashoffset: 290;
+  }
+
+  .route-path--animate {
+    animation: route-draw 1s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+  }
+
+  @keyframes route-dot-travel {
+    0% {
+      offset-distance: 0%;
+      opacity: 1;
+    }
+    80% {
+      opacity: 1;
+    }
+    100% {
+      offset-distance: 100%;
+      opacity: 0;
+      visibility: hidden;
+    }
+  }
+
+  .route-dot {
+    offset-path: path('M 30 25 Q 175 25 320 25');
+    animation: route-dot-travel 1.2s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+  }
+
+  /* ═══════════════════════════════════════════════
+     WIZARD · Step Indicator Dots
+     ═══════════════════════════════════════════════ */
+
+  @keyframes dot-pop {
+    0% {
+      transform: scale(0.6);
+    }
+    50% {
+      transform: scale(1.15);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+
+  .step-dot--active {
+    animation: dot-pop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+
+  /* ═══════════════════════════════════════════════
+     WIZARD · Summary card entrance
+     ═══════════════════════════════════════════════ */
+
+  @keyframes summary-row {
+    0% {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .summary-row {
+    animation: summary-row 0.4s ease-out both;
+  }
+
+  /* ═══════════════════════════════════════════════
+     WIZARD · Confirm Summary Slide-in Panel
+     ═══════════════════════════════════════════════ */
+
+  @keyframes summary-slide-in {
+    0% {
+      opacity: 0;
+      transform: translateX(100%) scale(0.96);
+    }
+    100% {
+      opacity: 1;
+      transform: translateX(0) scale(1);
+    }
+  }
+
+  .summary-slide-panel {
+    animation: summary-slide-in 0.55s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  }
+
+  .summary-slide-panel--row {
+    opacity: 0;
+    animation: summary-row 0.35s ease-out both;
+  }
+
+  /* ═══════════════════════════════════════════════
+     ACCESSIBILITY · prefers-reduced-motion
+     ═══════════════════════════════════════════════ */
+
+  @media (prefers-reduced-motion: reduce) {
+    /* Instant step transitions */
+    .wizard-step,
+    .wizard-step--active,
+    .wizard-step--exit-left,
+    .wizard-step--exit-right,
+    .wizard-step--enter-left {
+      transition-duration: 0s !important;
+      transition-delay: 0s !important;
+      animation-duration: 0s !important;
+    }
+
+    /* Disable all decorative animations */
+    .route-path--animate,
+    .route-dot,
+    .summary-row,
+    .summary-slide-panel,
+    .summary-slide-panel--row,
+    .step-dot--active,
+    .animate-glow-pulse,
+    .animate-orb-float,
+    .animate-orb-float-delayed,
+    .animate-orb-float-slow {
+      animation-duration: 0s !important;
+      animation-delay: 0s !important;
+    }
+
+    /* Snap route path to fully drawn */
+    .route-path {
+      stroke-dashoffset: 0;
+    }
+
+    /* Hide traveling dot */
+    .route-dot {
+      display: none;
+    }
+  }
 }

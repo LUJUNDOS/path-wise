@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Share2, Download, RefreshCw, Coins, Compass } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
@@ -13,6 +13,7 @@ import { ThemeToggle } from '@/components/common/ThemeToggle';
 import { apiClient, ApiError } from '@/lib/apiClient';
 import { formatCurrency } from '@/lib/format';
 import { buildExportHtml } from '@/lib/exportHtml';
+import { cn } from '@/lib/utils';
 import type { TripResponse, DayPlan } from '@path-wise/shared';
 
 export default function TripResultPage() {
@@ -21,6 +22,9 @@ export default function TripResultPage() {
   const [activeDay, setActiveDay] = useState('1');
   const [shareUrlCopied, setShareUrlCopied] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [expandedDays, setExpandedDays] = useState<Set<number>>(new Set([1]));
+  const [sidebarVisible, setSidebarVisible] = useState(false);
+  const sidebarRef = useRef<HTMLElement>(null);
 
   const {
     data: trip,
@@ -36,6 +40,33 @@ export default function TripResultPage() {
     staleTime: 5 * 60 * 1000,
     retry: 1,
   });
+
+  // Trigger sidebar slide-in after content loads
+  useEffect(() => {
+    if (trip) {
+      const timer = setTimeout(() => setSidebarVisible(true), 200);
+      return () => clearTimeout(timer);
+    }
+  }, [trip]);
+
+  // Reset expanded when trip changes
+  useEffect(() => {
+    if (trip?.days) {
+      setExpandedDays(new Set([1]));
+    }
+  }, [trip]);
+
+  const toggleDay = useCallback((dayIndex: number) => {
+    setExpandedDays((prev) => {
+      const next = new Set(prev);
+      if (next.has(dayIndex)) {
+        next.delete(dayIndex);
+      } else {
+        next.add(dayIndex);
+      }
+      return next;
+    });
+  }, []);
 
   const handleShare = useCallback(() => {
     if (trip?.shareUrl) {
@@ -210,13 +241,24 @@ export default function TripResultPage() {
               {/* Desktop vertical scroll */}
               <div className="hidden lg:block space-y-4">
                 {days.map((day: DayPlan) => (
-                  <DayPlanCard key={day.dayIndex} dayPlan={day} />
+                  <DayPlanCard
+                    key={day.dayIndex}
+                    dayPlan={day}
+                    expanded={expandedDays.has(day.dayIndex)}
+                    onToggle={() => toggleDay(day.dayIndex)}
+                  />
                 ))}
               </div>
             </div>
 
-            {/* Right: trip summary sidebar */}
-            <aside className="hidden lg:block">
+            {/* Right: trip summary sidebar with slide-in */}
+            <aside
+              ref={sidebarRef}
+              className={cn(
+                'hidden lg:block transition-all duration-700 ease-out',
+                sidebarVisible ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-8',
+              )}
+            >
               <div className="sticky top-24 rounded-2xl border border-border/40 bg-card p-6 shadow-sm space-y-5">
                 <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
                   行程摘要

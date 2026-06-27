@@ -1,6 +1,13 @@
 import { useCallback, useState } from 'react';
 import { X, GripVertical, Plus, ArrowDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { MAX_DESTINATIONS, MAX_DAYS_PER_DESTINATION, TRANSPORT_OPTIONS } from '@/lib/constants';
 import { CitySelector } from './CitySelector';
@@ -66,9 +73,12 @@ export function DestinationInput({
 
   const excludeCities = destinations.map((d) => d.cityName);
 
-  /** 第一个目的地的来源；后续目的地的来源是前一个目的地 */
+  /**第一个目的地的来源；后续目的地的来源是前一个目的地 */
   const sourceCity = (index: number): string =>
     index === 0 ? departureCity : (destinations[index - 1]?.cityName ?? '');
+
+  /**最后一个目的地才是"目的地"标签；其余是经停站 */
+  const isLast = (index: number): boolean => index === destinations.length - 1;
 
   return (
     <div className="space-y-3">
@@ -80,7 +90,7 @@ export function DestinationInput({
         {destinations.map((dest, index) => {
           const from = sourceCity(index);
           const hasSource = from.length > 0;
-          const isFirst = index === 0;
+          const last = isLast(index);
 
           return (
             <div
@@ -88,8 +98,8 @@ export function DestinationInput({
               className={cn(
                 'rounded-xl border bg-card px-4 py-3',
                 'shadow-sm transition-shadow hover:shadow-md',
-                isFirst && dest.transportTo && dest.transportTo !== 'auto'
-                  ? 'border-emerald-200 dark:border-emerald-800'
+                last && dest.transportTo && dest.transportTo !== 'auto'
+                  ? 'border-primary/30'
                   : 'border-border',
               )}
             >
@@ -111,12 +121,10 @@ export function DestinationInput({
                 <span
                   className={cn(
                     'inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-sm font-semibold',
-                    isFirst
-                      ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
-                      : 'bg-teal-50 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300',
+                    last ? 'bg-primary/10 text-primary' : 'bg-secondary/10 text-secondary',
                   )}
                 >
-                  {isFirst ? '目的地' : `第${index + 1}站`}
+                  {last ? '目的地' : `第${index + 1}站`}
                 </span>
 
                 <span className="font-semibold text-sm flex-1">{dest.cityName}</span>
@@ -166,20 +174,23 @@ export function DestinationInput({
                     {dest.cityName}
                   </span>
                   <div className="flex-1 min-w-0" />
-                  <select
+                  <Select
                     value={dest.transportTo ?? 'auto'}
-                    onChange={(e) => {
-                      const val = e.target.value;
+                    onValueChange={(val) => {
                       onUpdateTransport(index, val === 'auto' ? null : (val as TransportType));
                     }}
-                    className="h-8 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
                   >
-                    {TRANSPORT_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger className="h-8 w-[110px] text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TRANSPORT_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               )}
 

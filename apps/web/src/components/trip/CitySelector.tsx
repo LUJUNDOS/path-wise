@@ -48,11 +48,21 @@ export function CitySelector({
     return availableCities.filter((c) => c.toLowerCase().includes(q) || c === search);
   }, [search, availableCities]);
 
-  // Calculate dropdown position relative to viewport
+  // Calculate dropdown position relative to viewport, with boundary detection
   const recalcPosition = useCallback(() => {
     if (triggerRef.current) {
       const rect = triggerRef.current.getBoundingClientRect();
-      setDropdownPos({ top: rect.bottom + 4, left: rect.left, width: rect.width });
+      const dropdownHeight = 320; // estimated max height
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+
+      if (spaceBelow < dropdownHeight && spaceAbove > spaceBelow) {
+        // Render above the trigger
+        setDropdownPos({ top: rect.top - dropdownHeight - 4, left: rect.left, width: rect.width });
+      } else {
+        // Render below
+        setDropdownPos({ top: rect.bottom + 4, left: rect.left, width: rect.width });
+      }
     }
   }, []);
 
@@ -217,15 +227,6 @@ export function CitySelector({
                 onFocus={() => {
                   recalcPosition();
                   setOpen(true);
-                }}
-                onBlur={() => {
-                  // delay close so click on dropdown works
-                  setTimeout(() => {
-                    const trimmed = search.trim();
-                    if (trimmed && !POPULAR_CITIES.includes(trimmed as never)) {
-                      setSearch('');
-                    }
-                  }, 150);
                 }}
                 placeholder={placeholder}
                 disabled={disabled}
