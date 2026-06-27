@@ -1,9 +1,16 @@
 {
-  "enabledPlugins": {
-    "typescript-lsp@claude-plugins-official": true
-  },
   "env": {
     "CLAUDE_CODE_NEW_INIT": "1"
+  },
+  "permissions": {
+    "allow": [
+      "PowerShell(& \"C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe\" repo create LUJUNDOS/path-wise --source f:\\\\CCProjects\\\\path-wise --public 2>&1)",
+      "Bash(npx tsc *)",
+      "Skill(pr)",
+      "Skill(pr:*)",
+      "Bash(git commit -m '@ *)",
+      "Bash(git add *)"
+    ]
   },
   "hooks": {
     "SessionStart": [
@@ -30,5 +37,8 @@
         ]
       }
     ]
+  },
+  "enabledPlugins": {
+    "typescript-lsp@claude-plugins-official": true
   }
 }
