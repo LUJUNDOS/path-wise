@@ -201,6 +201,14 @@ export async function generateWithLLM(
     );
   }
 
+  // S6: 强制 HTTPS，防止中间人攻击
+  if (!entry.baseURL.startsWith('https://')) {
+    throw new LLMAPIError(
+      `[${provider}] Insecure configuration`,
+      `baseURL must use HTTPS: ${entry.baseURL}`,
+    );
+  }
+
   const url = `${entry.baseURL}/chat/completions`;
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), entry.retry.timeoutMs);
@@ -235,26 +243,14 @@ export async function generateWithLLM(
     });
 
     if (!response.ok) {
-      const errorText = await response.text().catch(() => 'No error body');
-      let detail = errorText;
-      try {
-        const errJson = JSON.parse(errorText);
-        detail = errJson?.error?.message ?? errJson?.message ?? errorText;
-      } catch {
-        // use raw errorText
-      }
-
       const STATUS_MESSAGE: Record<number, string> = {
         401: 'Authentication failed',
         403: 'Authentication failed',
         429: 'Rate limited',
       };
       const message = STATUS_MESSAGE[response.status] ?? 'API error';
-      throw new LLMAPIError(
-        `[${provider}] ${message}`,
-        `HTTP ${response.status}: ${detail}`,
-        response.status,
-      );
+      // S4: 不传递上游原始响应体，避免泄漏 API Key 或内部错误细节
+      throw new LLMAPIError(`[${provider}] ${message}`, `HTTP ${response.status}`, response.status);
     }
 
     const data = (await response.json()) as Record<string, unknown>;

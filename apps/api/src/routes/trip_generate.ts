@@ -24,6 +24,49 @@ import { successResponse, errorResponse } from '../utils/response.js';
 /** 日均杂费（当地交通、零食、纪念品等零散开销，单位 CNY） */
 const DAILY_MISC_COST_CNY = 200;
 
+// ─────────────────────────────────────────────
+// S2: 简单内存限流（MVP，生产可升级为 Redis 限流）
+// ─────────────────────────────────────────────
+
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT_MAX = 5;
+const RATE_LIMIT_WINDOW_MS = 60_000;
+
+/**
+ * 检查请求 IP 是否在限流窗口内
+ * @returns true 表示未超限，false 表示已超限
+ */
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const entry = rateLimitMap.get(ip);
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    return true;
+  }
+  if (entry.count >= RATE_LIMIT_MAX) return false;
+  entry.count++;
+  return true;
+}
+
+// ─────────────────────────────────────────────
+// S1: API Key 认证（MVP，可升级为 JWT/OAuth）
+// ─────────────────────────────────────────────
+
+/**
+ * 校验请求中的 API Key
+ * @returns true 表示认证通过，false 表示需要 401
+ */
+function authenticateApiKey(request: FastifyRequest): boolean {
+  const serverApiKey = process.env.SERVER_API_KEY;
+  // 未配置 SERVER_API_KEY 时跳过认证（本地开发便利）
+  if (!serverApiKey) return true;
+
+  const authHeader =
+    (request.headers['x-api-key'] as string) || (request.headers['authorization'] as string);
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
+  return !!token && token === serverApiKey;
+}
+
 /** 计算多天行程总花费（timeline 花费 + 住宿 + 日均杂费） */
 function computeTotalCost(days: DayPlan[]): number {
   return (
@@ -212,6 +255,21 @@ export async function tripGenerateRoutes(fastify: FastifyInstance): Promise<void
    * POST /trips/generate — 发起攻略生成（SSE 流式）
    */
   fastify.post('/trips/generate', async (request: FastifyRequest, reply: FastifyReply) => {
+    // S1: API Key 认证（在进入 SSE 生成流之前检查）
+    if (!authenticateApiKey(request)) {
+      return reply.status(401).send(errorResponse(ErrorCode.TOKEN_MISSING, '未提供有效的 API Key'));
+    }
+
+    // S2: 请求频率限制（在认证通过之后、SSE 建立之前检查）
+    const clientIp = request.ip || (request.headers['x-forwarded-for'] as string) || 'unknown';
+    if (!checkRateLimit(clientIp)) {
+      return reply
+        .status(429)
+        .send(
+          errorResponse(ErrorCode.RATE_LIMIT_TRIP_GENERATE, '攻略生成次数超限，请 1 分钟后再试'),
+        );
+    }
+
     const body = request.body as TripGenerateRequest;
     reply.header('Access-Control-Allow-Origin', '*');
 

@@ -19,13 +19,70 @@ import type {
   HotelOption,
 } from '@path-wise/shared';
 
-import { CITY_DATA, type CityData, type CityTransport } from '../data/mock_cities.js';
+import { CITY_DATA, type CityTransport } from '../data/mock_cities.js';
 import { clockTimeToMinutes } from '../utils/time_utils.js';
 import { LLMAPIError } from '../types/errors.js';
 
 // ─────────────────────────────────────────────
-// 重新导出（向后兼容）
+// S7: 日志清洗（防日志注入）
 // ─────────────────────────────────────────────
+
+/**
+ * 清洗用户数据后再记录日志
+ * 去除控制字符、转义换行符、截断到最大长度
+ */
+function sanitizeLog(value: string, maxLength = 100): string {
+  return (
+    value
+      // eslint-disable-next-line no-control-regex
+      .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, '') // 去除大部分控制字符（保留 \n \t）
+      .replace(/\n/g, '\\n')
+      .replace(/\r/g, '\\r')
+      .slice(0, maxLength)
+  );
+}
+
+// ─────────────────────────────────────────────
+// S5: LLM 输出运行时校验（防畸形 JSON 导致下游崩溃）
+// ─────────────────────────────────────────────
+
+/**
+ * 校验 LLM 返回的 DayPlan 对象
+ * 对非法字段进行安全默认值修复
+ * @param parsed - JSON.parse 后的未知对象
+ * @returns 校验并修复后的 DayPlan
+ */
+function validateDayPlan(parsed: unknown): DayPlan {
+  if (!parsed || typeof parsed !== 'object') throw new Error('Invalid DayPlan: not an object');
+  const dp = parsed as Record<string, unknown>;
+  if (!Array.isArray(dp.timeline)) throw new Error('Invalid DayPlan: timeline is not an array');
+
+  for (const item of dp.timeline) {
+    const ti = item as Record<string, unknown>;
+    // 校验费用：非数字或负数 → 0，超大值 → 10000
+    if (ti.estimatedCostCNY !== undefined) {
+      const cost = Number(ti.estimatedCostCNY);
+      if (isNaN(cost) || cost < 0) ti.estimatedCostCNY = 0;
+      if (cost > 10000) ti.estimatedCostCNY = 10000;
+    }
+    // 校验时间格式（HH:MM）
+    if (typeof ti.startTime === 'string' && !/^\d{2}:\d{2}$/.test(ti.startTime)) {
+      ti.startTime = '09:00';
+    }
+    if (typeof ti.endTime === 'string' && !/^\d{2}:\d{2}$/.test(ti.endTime)) {
+      ti.endTime = '10:00';
+    }
+    // 校验字符串长度
+    if (typeof ti.title === 'string' && ti.title.length > 500) {
+      ti.title = ti.title.slice(0, 500);
+    }
+    if (typeof ti.description === 'string' && ti.description.length > 1000) {
+      ti.description = ti.description.slice(0, 1000);
+    }
+  }
+
+  return dp as unknown as DayPlan;
+}
 
 export {
   saveTrip,
@@ -117,7 +174,7 @@ export function generateMockDay(
   // H5: 城市不在知识库时记录警告
   if (!CITY_DATA[cityName]) {
     console.warn(
-      `[generateMockDay] City "${cityName}" not found in CITY_DATA, falling back to 长沙`,
+      `[generateMockDay] City "${sanitizeLog(cityName)}" not found in CITY_DATA, falling back to 长沙`,
     );
   }
 
@@ -332,7 +389,7 @@ export async function generateDay(params: GenerateDayParams): Promise<DayPlan> {
   // H5: 城市知识库数据缺失时记录警告
   if (!cityData) {
     console.warn(
-      `[generateDay] City "${cityName}" not found in CITY_DATA, LLM will have no local knowledge data`,
+      `[generateDay] City "${sanitizeLog(cityName)}" not found in CITY_DATA, LLM will have no local knowledge data`,
     );
   }
 
@@ -374,18 +431,18 @@ export async function generateDay(params: GenerateDayParams): Promise<DayPlan> {
     // 解析 JSON
     let dayPlan: DayPlan;
     try {
-      dayPlan = JSON.parse(result.text) as DayPlan;
+      dayPlan = validateDayPlan(JSON.parse(result.text));
     } catch {
       throw new LLMAPIError(
         'Failed to parse LLM JSON output',
-        `Raw text: ${result.text.slice(0, 200)}`,
+        `LLM output failed JSON parse (length: ${result.text.length})`,
       );
     }
 
     // H9: 检查 LLM 输出的字段是否与预期一致（帮助调试 Prompt 质量）
     if (dayPlan.cityName && dayPlan.cityName !== cityName) {
       console.warn(
-        `[generateDay] LLM returned cityName "${dayPlan.cityName}" but expected "${cityName}"`,
+        `[generateDay] LLM returned cityName "${sanitizeLog(dayPlan.cityName)}" but expected "${sanitizeLog(cityName)}"`,
       );
     }
     if (dayPlan.dayIndex !== undefined && dayPlan.dayIndex !== dayIndex) {
@@ -417,8 +474,8 @@ export async function generateDay(params: GenerateDayParams): Promise<DayPlan> {
   } catch (error: unknown) {
     const errMsg = error instanceof Error ? error.message : String(error);
     console.warn(
-      `[generateDay] LLM failed for day ${dayIndex} (${cityName}), falling back to mock:`,
-      errMsg,
+      `[generateDay] LLM failed for day ${dayIndex} (${sanitizeLog(cityName)}), falling back to mock:`,
+      sanitizeLog(errMsg, 200),
     );
     return generateMockDay(
       dayIndex,

@@ -3,10 +3,36 @@
  * 依据：docs/LLM Prompt 设计文档_v1.0.0.md §3 + §5
  *
  * 职责：构建各任务类型的 System Prompt 和 User Prompt
+ *
+ * 安全：所有用户输入通过 sanitizePromptValue() 处理，防止 Prompt 注入
  */
 
 import type { TripGenerateRequest, DayPlan } from '@path-wise/shared';
 import type { CityTransport } from '../data/mock_cities.js';
+import { CITY_DATA } from '../data/mock_cities.js';
+
+// ─────────────────────────────────────────────
+// S3: 用户输入安全清洗（防 Prompt 注入）
+// ─────────────────────────────────────────────
+
+/**
+ * 清洗用户输入，防止 Prompt 注入攻击
+ * - 去除控制字符（保留空格）
+ * - 规范化空白符
+ * - 截断到最大长度
+ * @param value - 原始用户输入
+ * @param maxLength - 最大允许长度，默认 200
+ */
+function sanitizePromptValue(value: string, maxLength = 200): string {
+  return (
+    value
+      // eslint-disable-next-line no-control-regex
+      .replace(/[\x00-\x1f]/g, ' ') // 去除控制字符，保留空格
+      .replace(/\s+/g, ' ') // 规范化空白符
+      .trim()
+      .slice(0, maxLength)
+  );
+}
 
 // ─────────────────────────────────────────────
 // System Prompt（来自 LLM Prompt 设计文档 §3.1）
@@ -124,17 +150,29 @@ export function buildDayGenerationPrompt(params: DayGenerationPromptParams): str
   const paceLabel =
     preferences.pace === 'intensive' ? '高强度' : preferences.pace === 'relaxed' ? '宽松' : '适中';
 
+  // S3: 清洗用户输入，防 Prompt 注入
+  const safeCityName = sanitizePromptValue(cityName, 50);
+  const safeInterests = preferences.interests.map((i) => sanitizePromptValue(i, 100));
+  const safeDining = preferences.dining.map((d) => sanitizePromptValue(d, 100));
+
+  // S3: 校验城市名是否在已知知识库中（不在时记录警告但仍允许生成）
+  if (!CITY_DATA[cityName]) {
+    console.warn(
+      `[buildDayGenerationPrompt] City "${sanitizePromptValue(String(cityName), 50)}" not in CITY_DATA allowlist`,
+    );
+  }
+
   const parts: string[] = [];
 
   // 基本信息
   parts.push(`请为以下单日行程生成详细安排：`);
   parts.push(``);
   parts.push(`## 基本信息`);
-  parts.push(`- 目标城市：${cityName}`);
+  parts.push(`- 目标城市：${safeCityName}`);
   parts.push(`- 日期：${date}`);
   parts.push(`- 这是第 ${dayIndex} 天（共需生成多天）`);
   parts.push(
-    `- 在${cityName}停留 ${daysInCity} 天，${isFirstDayOfCity ? '今天是抵达的第一天' : `今天是第 ${Math.min(dayIndex, daysInCity)} 天`}`,
+    `- 在${safeCityName}停留 ${daysInCity} 天，${isFirstDayOfCity ? '今天是抵达的第一天' : `今天是第 ${Math.min(dayIndex, daysInCity)} 天`}`,
   );
   parts.push(`- 抵达日为 transit_departure 类型，非抵达日为 city_exploration 类型`);
 
@@ -144,11 +182,9 @@ export function buildDayGenerationPrompt(params: DayGenerationPromptParams): str
   parts.push(`- 预算等级：${budgetLabel}（${preferences.budget}）`);
   parts.push(`- 节奏偏好：${paceLabel}（${preferences.pace}）`);
   parts.push(`- 住宿偏好：${preferences.accommodation}`);
-  parts.push(
-    `- 兴趣偏好：${preferences.interests.length > 0 ? preferences.interests.join('、') : '综合'}`,
-  );
-  if (preferences.dining.length > 0) {
-    parts.push(`- 饮食偏好：${preferences.dining.join('、')}`);
+  parts.push(`- 兴趣偏好：${safeInterests.length > 0 ? safeInterests.join('、') : '综合'}`);
+  if (safeDining.length > 0) {
+    parts.push(`- 饮食偏好：${safeDining.join('、')}`);
   }
 
   // 出行人员
