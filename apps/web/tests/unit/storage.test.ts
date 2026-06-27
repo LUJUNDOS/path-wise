@@ -85,4 +85,43 @@ describe('localStorage 工具', () => {
       expect(() => clearAllStorage()).not.toThrow();
     });
   });
+
+  // ── 额外边界 ──
+
+  describe('writeJSON 异常安全', () => {
+    it('localStorage.setItem 抛异常不会外泄', () => {
+      const orig = localStorage.setItem;
+      localStorage.setItem = vi.fn(() => {
+        throw new Error('QuotaExceededError');
+      });
+
+      expect(() => saveRecentCity('北京')).not.toThrow();
+
+      localStorage.setItem = orig;
+    });
+  });
+
+  describe('readJSON 异常安全', () => {
+    it('损坏的 JSON + localStorage 异常应返回 []', () => {
+      // getRecentCities 内部用 readJSON → JSON.parse 失败 → fallback
+      localStorage.setItem('pathwise_recent_cities', '{broken');
+      const result = getRecentCities();
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe('order stability', () => {
+    it('反复保存同一城市不改变列表长度', () => {
+      for (let i = 0; i < 10; i++) {
+        saveRecentCity('北京');
+      }
+      const cities = getRecentCities();
+      expect(cities.length).toBe(1);
+      expect(cities[0]).toBe('北京');
+    });
+
+    it('空字符串城市可以保存', () => {
+      expect(() => saveRecentCity('')).not.toThrow();
+    });
+  });
 });

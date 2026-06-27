@@ -111,3 +111,78 @@ describe('errorResponse', () => {
     expect(result.message).toBe('ok-like error');
   });
 });
+
+// ── 额外边界测试 ──
+
+describe('successResponse 边界', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(FAKE_TIME));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('空对象 data', () => {
+    const result = successResponse({});
+    expect(result.data).toEqual({});
+  });
+
+  it('很长的 message', () => {
+    const long = 'a'.repeat(10000);
+    const result = successResponse(null, { message: long });
+    expect(result.message).toBe(long);
+  });
+
+  it('options 为 {} 时不应报错', () => {
+    const result = successResponse('data', {});
+    expect(result.message).toBe('ok');
+  });
+
+  it('嵌套复杂对象', () => {
+    const complex = {
+      trips: [{ id: 1, days: [{ title: 'Day 1' }, { title: 'Day 2' }] }],
+    };
+    const result = successResponse(complex);
+    expect(result.data.trips[0].days.length).toBe(2);
+  });
+});
+
+describe('errorResponse 边界', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(FAKE_TIME));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('空字符串 message', () => {
+    const result = errorResponse(500, '');
+    expect(result.message).toBe('');
+  });
+
+  it('很长的 message', () => {
+    const long = 'e'.repeat(5000);
+    const result = errorResponse(99999, long);
+    expect(result.message).toBe(long);
+    expect(result.code).toBe(99999);
+  });
+
+  it('负数 code', () => {
+    const result = errorResponse(-1, '负错误码');
+    expect(result.code).toBe(-1);
+  });
+
+  it('data 为 undefined 显式传入时不追加 data', () => {
+    const result = errorResponse(400, 'bad', { data: undefined });
+    expect(result).not.toHaveProperty('data');
+  });
+
+  it('data 为 null 时正确存储', () => {
+    const result = errorResponse(400, 'bad', { data: null });
+    expect(result.data).toBeNull();
+  });
+});
