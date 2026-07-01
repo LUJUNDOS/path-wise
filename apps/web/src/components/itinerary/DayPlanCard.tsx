@@ -106,12 +106,12 @@ export function DayPlanCard({
             (dayPlan.dayType === 'transit_departure' ||
               dayPlan.dayType === 'transit_transfer' ||
               dayPlan.dayType === 'transit_return') && (
-              <TransportInfoCard transport={dayPlan.transport} />
+              <TransportInfoCard transport={dayPlan.transport} date={dayPlan.date} />
             )}
 
           {/* Accommodation for first day of city */}
           {dayPlan.isFirstDayOfCity && dayPlan.accommodation && (
-            <AccommodationCard accommodation={dayPlan.accommodation} />
+            <AccommodationCard accommodation={dayPlan.accommodation} cityName={dayPlan.cityName} />
           )}
 
           {/* Timeline */}

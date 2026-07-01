@@ -22,6 +22,11 @@ import type {
 import { CITY_DATA, type CityTransport } from '../data/mock_cities.js';
 import { clockTimeToMinutes } from '../utils/time_utils.js';
 import { LLMAPIError } from '../types/errors.js';
+import { minutesToTime } from '../utils/date_utils.js';
+import { initializeTimeline } from './trip_engine.js';
+import { buildCandidatePools } from './trip_engine_candidate.js';
+import { fillTimeline } from './trip_engine_fill.js';
+import { handleTransferDay, isTransferDaySuitable, isTransferDay } from './trip_engine_transfer.js';
 
 // ─────────────────────────────────────────────
 // S7: 日志清洗（防日志注入）
@@ -545,4 +550,240 @@ export async function generateDay(params: GenerateDayParams): Promise<DayPlan> {
       departureDate,
     );
   }
+}
+
+// ─────────────────────────────────────────────
+// 引擎链路：initializeTimeline → buildCandidatePools → fillTimeline
+// ─────────────────────────────────────────────
+
+/**
+ * 引擎层的 DayPlan mapping 结果
+ */
+interface EngineDayPlanMapping {
+  dayPlan: DayPlan;
+  engineDay: import('./trip_engine_fill.js').FilledTimelineDay;
+}
+
+/**
+ * 将引擎输出的 FilledTimelineDay 转换为 DayPlan（API 响应格式）
+ *
+ * @param filledDay - 填充后的引擎天数据
+ * @param isFirstDayOfCity - 是否为该城市的抵达日
+ * @param daysInCity - 该城市总停留天数
+ * @param departureDate - 出发日期 (YYYY-MM-DD)
+ * @param prefs - 用户偏好设置
+ * @param transport - 城际交通信息（仅城市第一天有效）
+ * @returns DayPlan
+ */
+function mapEngineDayToDayPlan(
+  filledDay: import('./trip_engine_fill.js').FilledTimelineDay,
+  isFirstDayOfCity: boolean,
+  daysInCity: number,
+  departureDate: string,
+  prefs?: TripGenerateRequest['preferences'],
+  transport?: Record<string, unknown> | null,
+): DayPlan {
+  const { dayIndex, date, dayType, city, items } = filledDay;
+  const cityData = CITY_DATA[city] ?? CITY_DATA.长沙;
+
+  // 映射 timeline items
+  const timeline: TimelineItem[] = items.map((item, idx) => {
+    const { poi } = item;
+    return {
+      id: `${city}_${poi.category}_${idx}_${dayIndex}`,
+      type: poi.category === 'dining' ? 'dining' : 'attraction',
+      title: poi.name,
+      description: undefined,
+      startTime: minutesToTime(item.startTimeMinutes),
+      endTime: minutesToTime(item.endTimeMinutes),
+      estimatedDuration: item.endTimeMinutes - item.startTimeMinutes,
+      estimatedCostCNY: Math.round((poi.priceRange.min + poi.priceRange.max) / 2),
+      energyLevel: poi.energyLevel,
+      bookingRequired: poi.bookingRequired,
+      bookingUrl: poi.bookingUrl ?? null,
+    };
+  });
+
+  // 住宿（只在该城市第一天提供）
+  const budgetMultiplier = prefs?.budget === 'economy' ? 0.5 : prefs?.budget === 'luxury' ? 2.5 : 1;
+
+  const baseDate = new Date(departureDate);
+  const hotelIndices =
+    prefs?.budget === 'economy'
+      ? [1, 1]
+      : prefs?.budget === 'luxury'
+        ? [0, 1]
+        : [cityData.hotels.length > 1 ? 1 : 0, cityData.hotels.length > 2 ? 2 : 0];
+  const primaryHotel = cityData.hotels[Math.min(hotelIndices[0], cityData.hotels.length - 1)];
+  const backupHotel = cityData.hotels[Math.min(hotelIndices[1], cityData.hotels.length - 1)];
+
+  const primary: HotelOption = {
+    name: primaryHotel.name,
+    address: primaryHotel.address,
+    pricePerNight: Math.round(primaryHotel.pricePerNight * budgetMultiplier),
+    totalPrice: Math.round(primaryHotel.pricePerNight * daysInCity * budgetMultiplier),
+    reason: primaryHotel.reason,
+    amenities: primaryHotel.amenities,
+  };
+
+  const backup: HotelOption = {
+    name: backupHotel.name,
+    address: backupHotel.address,
+    pricePerNight: Math.round(backupHotel.pricePerNight * budgetMultiplier),
+    totalPrice: Math.round(backupHotel.pricePerNight * daysInCity * budgetMultiplier),
+    reason: backupHotel.reason,
+    amenities: backupHotel.amenities,
+  };
+
+  const accommodation: AccommodationOption | null = isFirstDayOfCity
+    ? {
+        checkInDate: date,
+        checkOutDate: new Date(
+          baseDate.getFullYear(),
+          baseDate.getMonth(),
+          baseDate.getDate() + dayIndex - 1 + daysInCity,
+        )
+          .toISOString()
+          .slice(0, 10),
+        nights: daysInCity,
+        primary,
+        backup,
+      }
+    : null;
+
+  return {
+    dayIndex,
+    date,
+    dayType,
+    cityName: city,
+    isFirstDayOfCity,
+    title: `Day ${dayIndex} · ${isFirstDayOfCity ? `抵达${city}` : `${city}深度游`}`,
+    timeline,
+    accommodation,
+    transport: isFirstDayOfCity ? (transport as Record<string, unknown> | null) : null,
+    tips: cityData.tips.slice(0, Math.min(2, cityData.tips.length)),
+  };
+}
+
+/**
+ * 通过引擎链路生成完整行程：initializeTimeline → buildCandidatePools → fillTimeline
+ *
+ * 与逐天 LLM 生成（generateDay）不同，引擎链路一次性处理整个 trip，
+ * 产生所有天的 DayPlan 数组。
+ *
+ * 流程：
+ *   1. initializeTimeline(params) — 初始化时间轴框架
+ *   2. buildCandidatePools(params, CITY_DATA) — 构建所有城市候选池
+ *   3. fillTimeline(timeline, pools, params) — 填充每天时间轴
+ *   4. 对中转日调用 handleTransferDay 过滤高强度活动
+ *   5. mapEngineDayToDayPlan() — 转换为 API 响应格式
+ *
+ * @param params - 攻略生成请求参数
+ * @param cityDataLookup - 城市知识库查找表（默认 CITY_DATA）
+ * @returns DayPlan[] — 所有天的行程计划
+ *
+ * @throws {BusinessError} destinations 为空或总天数超过上限
+ */
+export function generateTripViaEngine(
+  params: TripGenerateRequest,
+  cityDataLookup: Record<string, import('../data/mock_cities.js').CityData> = CITY_DATA,
+): DayPlan[] {
+  // Step 1: 时间轴初始化
+  const { timeline } = initializeTimeline(params);
+
+  // Step 2: 候选池构建
+  const candidatePools = buildCandidatePools(params, cityDataLookup);
+
+  // Step 3: 时间轴填充
+  const filledTimeline = fillTimeline(timeline, candidatePools, params);
+
+  // Step 4: 中转日特殊处理 + 转换为 DayPlan
+  const dayPlans: DayPlan[] = [];
+  const { destinations, preferences, departure } = params;
+  const departureDate = departure.date;
+
+  // 追踪每个城市的 first-day 状态
+  let globalDayOffset = 0;
+  const cityDayMap: Map<string, { totalDays: number }> = new Map();
+  for (const dest of destinations) {
+    cityDayMap.set(dest.cityName, { totalDays: dest.days });
+  }
+
+  for (const dest of destinations) {
+    const cityName = dest.cityName;
+    const totalCityDays = dest.days;
+
+    for (let cityDayIdx = 0; cityDayIdx < totalCityDays; cityDayIdx++) {
+      const filledDay = filledTimeline[globalDayOffset];
+      if (!filledDay) {
+        // 引擎输出天数和 destinations 天数不一致时跳过（防御）
+        globalDayOffset++;
+        continue;
+      }
+
+      const isFirstDayOfCity = cityDayIdx === 0;
+
+      // 对于中转日（transit_transfer / transit_return），调用 handleTransferDay 过滤高强度活动
+      // 并将过滤后的 items 替换回 filledDay
+      if (isTransferDay(filledDay.dayType)) {
+        const pool = candidatePools.get(cityName);
+        const candidates = pool ? [...pool.all] : [];
+
+        const transferCtx: import('./trip_engine_transfer.js').TransferDayContext = {
+          currentCity: cityName,
+          nextCity:
+            destinations[destinations.findIndex((d) => d.cityName === cityName) + 1]?.cityName ??
+            '',
+          transportType: filledDay.transferInfo?.transportType ?? null,
+          departTime: filledDay.transferInfo?.departTime ?? '16:00',
+          transitToHubMinutes: 60,
+        };
+
+        const transferResult = handleTransferDay(filledDay, candidates, transferCtx);
+
+        // 用过滤后的候选重新填充中转日（排除高强度活动）
+        // 但保留已经由 fillTimeline 安排好的 items（如果它们通过了中转日过滤）
+        // 简化策略：对已选的 items 再跑一次 transfer day 过滤
+        const filteredItems = filledDay.items.filter((item) => isTransferDaySuitable(item.poi));
+
+        // 更新 filledDay 的 items：保留通过中转日过滤的已有 items
+        const updatedFilledDay = {
+          ...filledDay,
+          items: filteredItems,
+        };
+
+        const dayPlan = mapEngineDayToDayPlan(
+          updatedFilledDay,
+          isFirstDayOfCity,
+          totalCityDays,
+          departureDate,
+          preferences,
+          null,
+        );
+        dayPlans.push(dayPlan);
+      } else {
+        // 城市探索日和抵达日直接映射
+        const dayPlan = mapEngineDayToDayPlan(
+          filledDay,
+          isFirstDayOfCity,
+          totalCityDays,
+          departureDate,
+          preferences,
+          null,
+        );
+        dayPlans.push(dayPlan);
+      }
+
+      globalDayOffset++;
+    }
+  }
+
+  return dayPlans;
+}
+
+/**
+ * 便捷包装：判断引擎输出是否包含有效活动
+ */
+export function hasEngineOutput(days: DayPlan[]): boolean {
+  return days.some((d) => d.timeline.length > 0);
 }

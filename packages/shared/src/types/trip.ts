@@ -131,6 +131,12 @@ export interface HotelOption {
   location?: GeoPoint;
   bookingUrl?: string;
   deepLink?: { platform: string; url: string };
+  /** 星级评分（如 4.5），可选 */
+  rating?: number;
+  /** 距主要景点距离描述（如 {"岳麓山": "15 分钟车程"}），可选 */
+  distanceToAttractions?: Record<string, string>;
+  /** 房型描述（如 "标准双床房"），可选 */
+  roomType?: string;
 }
 
 /** 日计划 */

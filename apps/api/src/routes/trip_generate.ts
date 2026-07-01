@@ -14,6 +14,7 @@ import { ErrorCode } from '@path-wise/shared';
 import {
   validateTripRequest,
   generateDay,
+  generateTripViaEngine,
   saveTrip,
   getMockTransport,
 } from '../services/trip_service.js';
@@ -108,6 +109,44 @@ function buildTripResponse(
   };
 }
 
+/**
+ * 通过引擎链路生成全部天行程（initializeTimeline → buildCandidatePools → fillTimeline）
+ *
+ * 首选路径：引擎一次性生成所有天，然后逐天 SSE 推送。
+ * 引擎失败时降级到逐天 LLM 生成（generateDay）。
+ *
+ * 引擎链路是纯同步计算（无 I/O），适合作为 MVP 默认生成策略。
+ */
+async function generateAllDaysViaEngine(
+  body: TripGenerateRequest,
+  sse: SSEStream,
+  reply: FastifyReply,
+  totalDays: number,
+): Promise<DayPlan[]> {
+  const engineDays = generateTripViaEngine(body);
+  const days: DayPlan[] = [];
+
+  // 逐天推送 SSE 事件
+  for (let i = 0; i < engineDays.length; i++) {
+    const day = engineDays[i];
+    const dayIndex = day.dayIndex;
+
+    safeSSESend(sse, reply, 'progress', {
+      step: dayIndex,
+      totalSteps: totalDays,
+      percent: Math.round((dayIndex / totalDays) * 100),
+      message: `正在为 ${day.cityName} 第 ${dayIndex} 天安排行程...`,
+      subMessage: `引擎正在规划 ${day.cityName} 的最佳路线`,
+      estimatedRemainingSeconds: Math.max(5, (totalDays - dayIndex) * 10),
+    });
+
+    days.push(day);
+    safeSSESend(sse, reply, 'day_ready', { dayIndex, day });
+  }
+
+  return days;
+}
+
 /** 逐城市、逐天生成行程（通过 LLM，失败了降级到 mock） */
 async function generateAllDays(
   body: TripGenerateRequest,
@@ -119,6 +158,21 @@ async function generateAllDays(
   const days: DayPlan[] = [];
   const departureCity = body.departure.city;
 
+  // 首选：引擎链路
+  try {
+    return await generateAllDaysViaEngine(body, sse, reply, totalDays);
+  } catch (engineError: unknown) {
+    // 客户端断开 — 静默退出
+    if (engineError instanceof ClientDisconnectError) {
+      return days;
+    }
+    const errMsg = engineError instanceof Error ? engineError.message : String(engineError);
+    console.warn(
+      `[generateAllDays] Engine pipeline failed: ${errMsg}, falling back to per-day LLM + mock`,
+    );
+  }
+
+  // 降级：逐天 LLM 生成
   for (let ci = 0; ci < body.destinations.length; ci++) {
     const dest = body.destinations[ci];
     const prevCity = ci === 0 ? departureCity : body.destinations[ci - 1].cityName;
