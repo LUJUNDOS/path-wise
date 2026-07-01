@@ -200,14 +200,17 @@ export function TripWizard({ className, style }: TripWizardProps) {
   const handleResolveConflict = useCallback((_index: number, action: string, value: string) => {
     const s = useTripFormStore.getState();
     switch (action) {
-      case 'adjust_budget':
+      case 'set_budget':
         s.setBudget(value as never);
         break;
-      case 'adjust_pace':
+      case 'set_pace':
         s.setPace(value as never);
         break;
-      case 'adjust_accommodation':
+      case 'set_accommodation':
         s.setAccommodation(value);
+        break;
+      case 'set_timePeriod':
+        s.setTimePeriod(value as never);
         break;
     }
   }, []);

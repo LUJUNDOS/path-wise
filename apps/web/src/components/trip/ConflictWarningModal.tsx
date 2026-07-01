@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import {
   Dialog,
@@ -28,6 +28,25 @@ export function ConflictWarningModal({
   onResolveConflict,
 }: ConflictWarningModalProps) {
   const [dismissed, setDismissed] = useState<Set<number>>(new Set());
+
+  // Track previous open state for reset-on-reopen
+  const prevOpenRef = useRef(false);
+  useEffect(() => {
+    if (open) {
+      if (!prevOpenRef.current) {
+        // Modal just opened — reset dismissed set
+        setDismissed(new Set());
+      }
+    }
+    prevOpenRef.current = open;
+  }, [open]);
+
+  // Auto-proceed when all conflicts have been individually resolved
+  useEffect(() => {
+    if (open && conflicts.length > 0 && dismissed.size >= conflicts.length) {
+      onForceGenerate();
+    }
+  }, [open, conflicts.length, dismissed.size, onForceGenerate]);
 
   const handleDismiss = useCallback((index: number) => {
     setDismissed((prev) => new Set(prev).add(index));
