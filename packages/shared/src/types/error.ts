@@ -53,6 +53,10 @@ export enum ErrorCode {
   // 限流
   RATE_LIMIT_TRIP_GENERATE = 42901,
   RATE_LIMIT_GLOBAL = 42902,
+
+  // 幂等键相关
+  IDEMPOTENCY_KEY_INVALID = 10008,
+  IDEMPOTENCY_KEY_CONFLICT = 10009,
 }
 
 /** 错误消息映射（用户友好） */
@@ -89,6 +93,9 @@ export const ErrorMessageMap: Record<number, string> = {
 
   [ErrorCode.RATE_LIMIT_TRIP_GENERATE]: '攻略生成次数超限，请 1 小时后再试',
   [ErrorCode.RATE_LIMIT_GLOBAL]: '请求频率超限，请稍后再试',
+
+  [ErrorCode.IDEMPOTENCY_KEY_INVALID]: '幂等键格式无效，必须为 UUID v4',
+  [ErrorCode.IDEMPOTENCY_KEY_CONFLICT]: '相同幂等键的请求正在处理中，请等待完成后重试',
 };
 
 /** 统一错误响应体 */

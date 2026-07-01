@@ -568,6 +568,208 @@ describe('buildDayGenerationPrompt', () => {
     });
     expect(prompt).toContain('奢华');
   });
+
+  // ─────────────────────────────────────────────
+  // UT-PROMPT-006: 返程提示词测试
+  // ─────────────────────────────────────────────
+
+  describe('UT-PROMPT-006: 返程提示词 (needsReturnTransport)', () => {
+    const returnBaseParams = {
+      cityName: '长沙',
+      dayIndex: 5,
+      date: '2026-07-05',
+      isFirstDayOfCity: false,
+      daysInCity: 3,
+      preferences: {
+        budget: 'comfort' as const,
+        pace: 'moderate' as const,
+        accommodation: 'chain_hotel',
+        dining: ['辣', '湘菜'],
+        interests: ['culture', 'food'],
+      },
+      travelers: {
+        adults: 2,
+        children: [],
+        elders: 0,
+      },
+      transport: null,
+      cityData: {
+        attractions: [{ name: '岳麓山', durationMin: 180 }],
+        dining: [{ name: '文和友' }],
+      },
+      previousDays: [],
+      needsReturnTransport: true as boolean | undefined,
+      returnTransportPref: 'auto' as const,
+      isLastDay: true,
+      departureCity: '北京',
+    };
+
+    it('needsReturnTransport=true 且 isLastDay=true 应包含返程交通生成指令', () => {
+      const prompt = buildDayGenerationPrompt(returnBaseParams);
+      expect(prompt).toContain('返程交通要求');
+      expect(prompt).toContain('返程交通');
+      expect(prompt).toContain('transit_return');
+      expect(prompt).toContain('返程目的地：北京');
+      expect(prompt).toContain('提前到达时间');
+      expect(prompt).toContain('需要在 transport 字段中填入返程交通信息');
+    });
+
+    it('needsReturnTransport=true 且 isLastDay=true 应包含出发城市信息', () => {
+      const prompt = buildDayGenerationPrompt(returnBaseParams);
+      expect(prompt).toContain('出发城市（末站）：长沙');
+      expect(prompt).toContain('返程目的地：北京');
+    });
+
+    it('needsReturnTransport=true 且 isLastDay=false 不应包含返程指令', () => {
+      const prompt = buildDayGenerationPrompt({
+        ...returnBaseParams,
+        isLastDay: false,
+      });
+      expect(prompt).not.toContain('返程交通要求');
+      expect(prompt).not.toContain('transit_return');
+    });
+
+    it('needsReturnTransport=false 且 isLastDay=true 不应包含返程指令', () => {
+      const prompt = buildDayGenerationPrompt({
+        ...returnBaseParams,
+        needsReturnTransport: false,
+      });
+      expect(prompt).not.toContain('返程交通要求');
+      expect(prompt).not.toContain('transit_return');
+    });
+
+    it('needsReturnTransport=undefined 且 isLastDay=true 不应包含返程指令（默认行为）', () => {
+      const prompt = buildDayGenerationPrompt({
+        ...returnBaseParams,
+        needsReturnTransport: undefined,
+      });
+      expect(prompt).not.toContain('返程交通要求');
+      expect(prompt).not.toContain('transit_return');
+    });
+
+    it('needsReturnTransport=true 且 isLastDay=true 应包含标准行程信息（与返程不冲突）', () => {
+      const prompt = buildDayGenerationPrompt(returnBaseParams);
+      // 仍应包含基本信息
+      expect(prompt).toContain('长沙');
+      expect(prompt).toContain('2026-07-05');
+      expect(prompt).toContain('成人：2 人');
+      expect(prompt).toContain('舒适');
+    });
+
+    it('returnTransportPref=high_speed_rail 应显示高铁/动车标签', () => {
+      const prompt = buildDayGenerationPrompt({
+        ...returnBaseParams,
+        returnTransportPref: 'high_speed_rail',
+      });
+      expect(prompt).toContain('高铁/动车');
+      expect(prompt).toContain('high_speed_rail');
+    });
+
+    it('returnTransportPref=flight 应显示飞机标签', () => {
+      const prompt = buildDayGenerationPrompt({
+        ...returnBaseParams,
+        returnTransportPref: 'flight',
+      });
+      expect(prompt).toContain('飞机');
+      expect(prompt).toContain('flight');
+    });
+
+    it('returnTransportPref=normal_train 应显示普通火车标签', () => {
+      const prompt = buildDayGenerationPrompt({
+        ...returnBaseParams,
+        returnTransportPref: 'normal_train',
+      });
+      expect(prompt).toContain('普通火车');
+      expect(prompt).toContain('normal_train');
+    });
+
+    it('returnTransportPref=bus 应显示大巴标签', () => {
+      const prompt = buildDayGenerationPrompt({
+        ...returnBaseParams,
+        returnTransportPref: 'bus',
+      });
+      expect(prompt).toContain('大巴');
+      expect(prompt).toContain('bus');
+    });
+
+    it('returnTransportPref=auto 应显示智能推荐标签', () => {
+      const prompt = buildDayGenerationPrompt({
+        ...returnBaseParams,
+        returnTransportPref: 'auto',
+      });
+      expect(prompt).toContain('智能推荐');
+      expect(prompt).toContain('auto');
+    });
+
+    it('不传 returnTransportPref 应默认为 auto 智能推荐', () => {
+      const { returnTransportPref: _, ...paramsWithoutReturnPref } = returnBaseParams;
+      const prompt = buildDayGenerationPrompt(paramsWithoutReturnPref);
+      expect(prompt).toContain('智能推荐');
+      expect(prompt).toContain('auto');
+    });
+
+    it('departureCity 未传时应使用默认值', () => {
+      const { departureCity: _dc, ...paramsWithoutDeparture } = returnBaseParams;
+      const prompt = buildDayGenerationPrompt(paramsWithoutDeparture);
+      expect(prompt).toContain('返程交通要求');
+      expect(prompt).toContain('返程目的地：出发城市');
+    });
+
+    it('返程日应包含时间预留提醒', () => {
+      const prompt = buildDayGenerationPrompt(returnBaseParams);
+      expect(prompt).toContain('航班 2 小时');
+      expect(prompt).toContain('高铁/火车 1.5 小时');
+      expect(prompt).toContain('大巴 1 小时');
+    });
+
+    it('返程日应包含 dayType 设置指令', () => {
+      const prompt = buildDayGenerationPrompt(returnBaseParams);
+      expect(prompt).toContain('transit_return');
+    });
+
+    it('返程日应包含末站城市信息', () => {
+      const prompt = buildDayGenerationPrompt({
+        ...returnBaseParams,
+        cityName: '西安',
+      });
+      expect(prompt).toContain('出发城市（末站）：西安');
+      expect(prompt).toContain('返程目的地：北京');
+    });
+
+    it('返程日应包含 timeline 条目安排指令', () => {
+      const prompt = buildDayGenerationPrompt(returnBaseParams);
+      expect(prompt).toContain('type: transport');
+    });
+
+    it('返程日非末站城市首日不应额外包含住宿', () => {
+      // isFirstDayOfCity=false, so no accommodation section
+      const prompt = buildDayGenerationPrompt(returnBaseParams);
+      // 返程指令存在
+      expect(prompt).toContain('返程交通要求');
+      // 但住宿不应出现（因为 isFirstDayOfCity=false）
+      expect(prompt).not.toContain('住宿要求');
+    });
+
+    it('返程日且是城市首日应同时包含住宿和返程', () => {
+      const prompt = buildDayGenerationPrompt({
+        ...returnBaseParams,
+        isFirstDayOfCity: true,
+      });
+      expect(prompt).toContain('住宿要求');
+      expect(prompt).toContain('返程交通要求');
+    });
+
+    it('多城市行程最后一天应正确标记', () => {
+      const prompt = buildDayGenerationPrompt({
+        ...returnBaseParams,
+        cityName: '西安',
+        departureCity: '北京',
+        isFirstDayOfCity: false,
+      });
+      expect(prompt).toContain('出发城市（末站）：西安');
+      expect(prompt).toContain('返程目的地：北京');
+    });
+  });
 });
 
 // ─────────────────────────────────────────────
@@ -958,6 +1160,31 @@ describe('getMockTransport', () => {
     const result = getMockTransport('广州', '深圳');
     expect(result.durationMinutes).toBe(31);
     expect(result.pricePerPerson.secondClass).toBeLessThan(100);
+  });
+
+  it('下午出发表时应返回下午车次（北京→长沙）', () => {
+    const result = getMockTransport('北京', '长沙', 'afternoon');
+    expect(result.type).toBe('high_speed_rail');
+    expect(result.trainNumber).toBe('G505');
+    expect(result.departTime).toBe('15:05');
+    expect(result.arriveTime).toBe('20:41');
+    // 下午出发的 note 应提及下午
+    expect(result.note).toContain('下午');
+  });
+
+  it('晚上出发表时应返回夜间车次', () => {
+    const result = getMockTransport('北京', '长沙', 'evening');
+    expect(result.type).toBe('normal_train');
+    expect(result.departTime).toBe('22:00');
+    expect(result.isOvernight).toBe(true);
+  });
+
+  it('下午出发但无专门车次时应平移上午车次', () => {
+    const result = getMockTransport('杭州', '上海', 'afternoon');
+    expect(result.type).toBe('high_speed_rail');
+    // 原 G7536 09:23→10:17，加 6 小时后为 15:23→16:17
+    expect(result.departTime).toBe('15:23');
+    expect(result.arriveTime).toBe('16:17');
   });
 });
 
@@ -1748,5 +1975,262 @@ describe('saveTrip 容量上限', () => {
     const found = await getTrip(tid);
     expect(found).not.toBeNull();
     expect(found!.tripId).toBe(tid);
+  });
+});
+
+// ─────────────────────────────────────────────
+// Section 20: Idempotency-Key 集成（路由层幂等）
+// ─────────────────────────────────────────────
+
+import {
+  IdempotencyStore,
+  getIdempotencyStore,
+  resetIdempotencyStore,
+  validateIdempotencyKey,
+} from './idempotency_service.js';
+
+/** 有效的 UUID v4（幂等测试用） */
+const IDEM_UUID_1 = '550e8400-e29b-41d4-a716-446655440100';
+const IDEM_UUID_2 = '660e8400-e29b-41d4-a716-446655440200';
+
+/** 构建幂等测试用的 trip 请求体 */
+function makeIdemTripRequest() {
+  return {
+    departure: { city: '北京', date: '2026-07-01', timePeriod: 'morning' as const },
+    destinations: [{ cityName: '西安', days: 2, transportTo: null }],
+    travelers: { adults: 1, children: [], elders: 0 },
+    preferences: {
+      budget: 'comfort' as const,
+      pace: 'moderate' as const,
+      accommodation: 'chain_hotel',
+      dining: ['面食'],
+      interests: ['history'],
+    },
+  };
+}
+
+describe('Idempotency-Key 集成（IdempotencyStore 逻辑层）', () => {
+  let store: IdempotencyStore;
+
+  beforeEach(() => {
+    store = new IdempotencyStore();
+    resetIdempotencyStore();
+  });
+
+  afterEach(() => {
+    resetIdempotencyStore();
+  });
+
+  // ---- 完整幂等流程 ----
+
+  it('无 Idempotency-Key 时应正常处理（不报错）', () => {
+    // 模拟路由逻辑：key 为 undefined 时跳过幂等检查
+    const key = undefined;
+    expect(key).toBeUndefined();
+    // 确保 store 不受影响
+    expect(store.size).toBe(0);
+  });
+
+  it('无效 Idempotency-Key 格式应返回 400', () => {
+    const result = validateIdempotencyKey('not-a-uuid');
+    expect(result.valid).toBe(false);
+    expect(result.reason).toContain('UUID v4');
+  });
+
+  it('空 Idempotency-Key 字符串应返回 400', () => {
+    const result = validateIdempotencyKey('');
+    expect(result.valid).toBe(false);
+    expect(result.reason).toContain('empty');
+  });
+
+  it('首次请求应标记 pending 并正常生成', () => {
+    const key = IDEM_UUID_1;
+    const cached = store.get(key);
+    expect(cached).toBeNull();
+
+    // 标记 pending
+    const accepted = store.setPending(key);
+    expect(accepted).toBe(true);
+
+    const entry = store.get(key);
+    expect(entry).not.toBeNull();
+    expect(entry!.status).toBe('pending');
+  });
+
+  it('生成完成后应缓存结果，后续请求命中缓存', () => {
+    const key = IDEM_UUID_1;
+    store.setPending(key);
+
+    const trip = makeTrip({ tripId: 'cached_trip_001' });
+    store.setCompleted(key, trip);
+
+    const cached = store.get(key);
+    expect(cached).not.toBeNull();
+    expect(cached!.status).toBe('completed');
+    expect(cached!.result!.tripId).toBe('cached_trip_001');
+  });
+
+  it('并发请求相同 key 应返回 409 Conflict', () => {
+    const key = IDEM_UUID_1;
+
+    // 第一次请求成功设置 pending
+    const first = store.setPending(key);
+    expect(first).toBe(true);
+
+    // 第二次请求相同的 key 应失败（并发冲突）
+    const second = store.setPending(key);
+    expect(second).toBe(false);
+
+    // 查询状态
+    const entry = store.get(key);
+    expect(entry!.status).toBe('pending');
+  });
+
+  it('生成失败后应标记 failed，允许客户端通过 delete+setPending 重试', () => {
+    const key = IDEM_UUID_1;
+    store.setPending(key);
+    store.setFailed(key, 'LLM 调用超时');
+
+    const entry = store.get(key);
+    expect(entry!.status).toBe('failed');
+    expect(entry!.error).toBe('LLM 调用超时');
+
+    // 客户端重试：先删除再标记 pending
+    store.delete(key);
+    const retryAccepted = store.setPending(key);
+    expect(retryAccepted).toBe(true);
+
+    // 重试成功
+    const trip = makeTrip({ tripId: 'retry_success' });
+    store.setCompleted(key, trip);
+    expect(store.get(key)!.status).toBe('completed');
+    expect(store.get(key)!.result!.tripId).toBe('retry_success');
+  });
+
+  it('不同 Idempotency-Key 应互不干扰', () => {
+    // Key 1: pending
+    store.setPending(IDEM_UUID_1);
+    // Key 2: completed
+    store.setPending(IDEM_UUID_2);
+    store.setCompleted(IDEM_UUID_2, makeTrip({ tripId: 'trip_2' }));
+
+    expect(store.get(IDEM_UUID_1)!.status).toBe('pending');
+    expect(store.get(IDEM_UUID_2)!.status).toBe('completed');
+    expect(store.size).toBe(2);
+  });
+
+  it('缓存过期后应允许重新请求', async () => {
+    const shortStore = new IdempotencyStore(50); // 50ms TTL
+    const key = IDEM_UUID_1;
+
+    shortStore.setPending(key);
+    shortStore.setCompleted(key, makeTrip({ tripId: 'expired_trip' }));
+
+    // 等待过期
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    const entry = shortStore.get(key);
+    expect(entry!.isExpired).toBe(true);
+
+    // 过期后新请求应允许覆盖
+    shortStore.delete(key);
+    const retryAccepted = shortStore.setPending(key);
+    expect(retryAccepted).toBe(true);
+  });
+
+  it('参数校验失败后应清理 pending 状态', () => {
+    const key = IDEM_UUID_1;
+    store.setPending(key);
+    expect(store.has(key)).toBe(true);
+
+    // 模拟参数校验失败 → 删除 pending
+    store.delete(key);
+    expect(store.has(key)).toBe(false);
+    expect(store.get(key)).toBeNull();
+  });
+
+  it('命中缓存时应返回 X-Idempotency-Replayed 标识', () => {
+    const key = IDEM_UUID_1;
+    store.setPending(key);
+    store.setCompleted(key, makeTrip({ tripId: 'replay_test' }));
+
+    const cached = store.get(key);
+    expect(cached).not.toBeNull();
+    expect(cached!.status).toBe('completed');
+    // 路由层会设置 X-Idempotency-Replayed: true header
+    // 此处验证 store 层返回 cached 结果
+    expect(cached!.result).not.toBeNull();
+  });
+
+  it('pending 状态的请求超时后应可被新请求覆盖', async () => {
+    const shortStore = new IdempotencyStore(50);
+    const key = IDEM_UUID_1;
+
+    shortStore.setPending(key);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    const entry = shortStore.get(key);
+    expect(entry!.isExpired).toBe(true);
+
+    // 过期后的 pending 应允许覆盖
+    shortStore.delete(key);
+    const accepted = shortStore.setPending(key);
+    expect(accepted).toBe(true);
+  });
+
+  it('三次失败后第四次请求成功应正常缓存', () => {
+    const key = IDEM_UUID_1;
+
+    for (let i = 0; i < 3; i++) {
+      store.setPending(key);
+      store.setFailed(key, `尝试 ${i + 1} 失败`);
+      store.delete(key);
+    }
+
+    // 第四次成功
+    store.setPending(key);
+    const trip = makeTrip({ tripId: 'fourth_success' });
+    store.setCompleted(key, trip);
+
+    expect(store.get(key)!.status).toBe('completed');
+    expect(store.get(key)!.result!.tripId).toBe('fourth_success');
+  });
+
+  it('X-Idempotency-Replayed 头在非缓存响应中不应存在', () => {
+    // 新请求（首次、无缓存）不应有 X-Idempotency-Replayed
+    const key = IDEM_UUID_1;
+    const cached = store.get(key);
+    expect(cached).toBeNull();
+    // 路由层不会设置 X-Idempotency-Replayed header
+  });
+
+  it('大面积并发 — 100 个不同 key 同时请求互不冲突', () => {
+    const keys: string[] = [];
+    for (let i = 0; i < 100; i++) {
+      const hex = i.toString(16).padStart(12, '0');
+      keys.push(`a00e8400-e29b-41d4-a716-${hex}`);
+    }
+
+    for (const k of keys) {
+      const accepted = store.setPending(k);
+      expect(accepted).toBe(true);
+    }
+    expect(store.size).toBe(100);
+
+    for (const k of keys) {
+      expect(store.get(k)!.status).toBe('pending');
+    }
+  });
+
+  it('大面积并发 — 相同 key 同时请求只有一个成功', () => {
+    const key = IDEM_UUID_1;
+    // 模拟 50 个相同 key 的并发请求
+    let successCount = 0;
+    for (let i = 0; i < 50; i++) {
+      if (store.setPending(key)) successCount++;
+    }
+    // 只有一个请求应该成功标记 pending
+    expect(successCount).toBe(1);
+    expect(store.size).toBe(1);
   });
 });

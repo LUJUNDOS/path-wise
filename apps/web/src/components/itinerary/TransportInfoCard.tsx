@@ -2,8 +2,12 @@ import { cn } from '@/lib/utils';
 import { Train, Plane, Bus, Car, AlertTriangle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { formatCurrency } from '@/lib/format';
-import type { TransportInfoCardProps } from './DayPlanCard';
+import { formatCurrency, formatDuration } from '@/lib/format';
+
+export interface TransportInfoCardProps {
+  transport: Record<string, unknown> | null | undefined;
+  className?: string;
+}
 
 const TRANSPORT_ICONS: Record<string, React.ReactNode> = {
   high_speed_rail: <Train className="h-5 w-5" />,
@@ -38,9 +42,7 @@ export function TransportInfoCard({ transport, className }: TransportInfoCardPro
   const isOvernight = Boolean(t.isOvernight);
   const prices = t.pricePerPerson as Record<string, number> | undefined;
 
-  const hours = Math.floor(durationMin / 60);
-  const mins = durationMin % 60;
-  const durationStr = mins > 0 ? `${hours}小时${mins}分` : `${hours}小时`;
+  const durationStr = formatDuration(durationMin);
 
   return (
     <Card className={cn('border-l-4 border-l-blue-500', className)}>
@@ -62,7 +64,11 @@ export function TransportInfoCard({ transport, className }: TransportInfoCardPro
               )}
             </div>
             <p className="text-sm text-muted-foreground mt-0.5">
-              {departStation} {departTime} -- {arriveStation} {arriveTime}
+              <span className="text-xs">{departStation} </span>
+              <time>{departTime}</time>
+              {' → '}
+              <span className="text-xs">{arriveStation} </span>
+              <time>{arriveTime}</time>
             </p>
             <p className="text-xs text-muted-foreground mt-0.5">历时 {durationStr}</p>
             {prices && (

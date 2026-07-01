@@ -17,6 +17,7 @@ import {
   saveTrip,
   getMockTransport,
 } from '../services/trip_service.js';
+import { validateIdempotencyKey, getIdempotencyStore } from '../services/idempotency_service.js';
 import { createSSEStream } from '../utils/sseStream.js';
 import type { SSEStream } from '../utils/sseStream.js';
 import { successResponse, errorResponse } from '../utils/response.js';
@@ -123,8 +124,8 @@ async function generateAllDays(
     const prevCity = ci === 0 ? departureCity : body.destinations[ci - 1].cityName;
     const transport =
       ci === 0
-        ? getMockTransport(departureCity, dest.cityName)
-        : getMockTransport(prevCity, dest.cityName);
+        ? getMockTransport(departureCity, dest.cityName, body.departure.timePeriod)
+        : getMockTransport(prevCity, dest.cityName, body.departure.timePeriod);
 
     for (let d = 0; d < dest.days; d++) {
       safeSSESend(sse, reply, 'progress', {
@@ -148,6 +149,9 @@ async function generateAllDays(
           transport: d === 0 ? transport : null,
           previousDays: days,
           departureDate: body.departure.date,
+          departureCity: body.departure.city,
+          needsReturnTransport: body.needsReturnTransport,
+          returnTransportPref: body.returnTransportPref,
         });
 
         days.push(day);
@@ -270,14 +274,78 @@ export async function tripGenerateRoutes(fastify: FastifyInstance): Promise<void
         );
     }
 
+    // S3: 幂等键处理（在认证和限流之后、参数校验之前检查）
+    const idempotencyKey = request.headers['idempotency-key'] as string | undefined;
+    const idempotencyStore = getIdempotencyStore();
+
+    if (idempotencyKey !== undefined) {
+      // 校验幂等键格式
+      const keyValidation = validateIdempotencyKey(idempotencyKey);
+      if (!keyValidation.valid) {
+        reply.header('Access-Control-Allow-Origin', '*');
+        return reply
+          .status(400)
+          .send(errorResponse(ErrorCode.IDEMPOTENCY_KEY_INVALID, keyValidation.reason!));
+      }
+
+      // 检查是否已有缓存
+      const cached = idempotencyStore.get(idempotencyKey);
+
+      if (cached && !cached.isExpired) {
+        if (cached.status === 'completed' && cached.result) {
+          // 命中缓存，直接返回已有结果
+          reply.header('Access-Control-Allow-Origin', '*');
+          reply.header('X-Idempotency-Replayed', 'true');
+          return reply.send(successResponse(cached.result, { message: '命中幂等缓存' }));
+        }
+        if (cached.status === 'pending') {
+          // 相同 key 的请求正在处理中
+          reply.header('Access-Control-Allow-Origin', '*');
+          return reply
+            .status(409)
+            .send(
+              errorResponse(
+                ErrorCode.IDEMPOTENCY_KEY_CONFLICT,
+                '相同幂等键的请求正在处理中，请等待完成后重试',
+              ),
+            );
+        }
+        // cached.status === 'failed': 允许重试（继续执行后续流程）
+      }
+
+      // 标记为 pending（防并发）
+      // 对于过期或失败的 key，先删除再重新标记为 pending
+      if (!cached || cached.isExpired || cached.status === 'failed') {
+        if (cached) {
+          idempotencyStore.delete(idempotencyKey);
+        }
+        const accepted = idempotencyStore.setPending(idempotencyKey);
+        if (!accepted) {
+          reply.header('Access-Control-Allow-Origin', '*');
+          return reply
+            .status(409)
+            .send(
+              errorResponse(
+                ErrorCode.IDEMPOTENCY_KEY_CONFLICT,
+                '相同幂等键的请求正在处理中，请等待完成后重试',
+              ),
+            );
+        }
+      }
+    }
+
     const body = request.body as TripGenerateRequest;
     reply.header('Access-Control-Allow-Origin', '*');
 
     // 参数校验
-    if (!body.destinations?.length) {
+    if (!body.destinations?.length || !Array.isArray(body.destinations)) {
+      // 幂等键清理：参数校验失败时释放 pending 状态
+      if (idempotencyKey) {
+        idempotencyStore.delete(idempotencyKey);
+      }
       return reply.status(400).send(
         errorResponse(ErrorCode.DESTINATIONS_EMPTY, 'destinations 不能为空', {
-          data: { field: 'destinations', reason: '至少需要 1 个目的地' },
+          data: { field: 'destinations', reason: 'destinations 必须是数组且至少包含 1 个目的地' },
         }),
       );
     }
@@ -285,6 +353,10 @@ export async function tripGenerateRoutes(fastify: FastifyInstance): Promise<void
     // 冲突检测
     const validation = validateTripRequest(body);
     if (validation.conflicts.length > 0) {
+      // 幂等键清理：冲突检测返回时释放 pending 状态
+      if (idempotencyKey) {
+        idempotencyStore.delete(idempotencyKey);
+      }
       return reply.send(successResponse(validation));
     }
 
@@ -313,8 +385,20 @@ export async function tripGenerateRoutes(fastify: FastifyInstance): Promise<void
         shareUrl: `https://tripplanner.com/share/${tripResponse.tripId}`,
       });
       saveTrip(tripResponse);
+
+      // 幂等键：成功完成后缓存结果
+      if (idempotencyKey) {
+        idempotencyStore.setCompleted(idempotencyKey, tripResponse);
+      }
+
       sse.end();
     } catch (error: unknown) {
+      // 幂等键：生成失败时标记失败
+      if (idempotencyKey) {
+        const errMsg = error instanceof Error ? error.message : '未知错误';
+        idempotencyStore.setFailed(idempotencyKey, errMsg);
+      }
+
       if (error instanceof DayGenerationPartialCompletion) {
         // 错误已在 generateAllDays 内部发送，不需要额外处理
         return;

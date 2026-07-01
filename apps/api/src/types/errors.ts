@@ -94,8 +94,12 @@ export class NotFoundError extends BusinessError {
 
 /** 参数校验错误 */
 export class ValidationError extends BusinessError {
+  /** 校验失败的字段名，便于路由层直接提取，避免字符串解析 */
+  public readonly fieldName: string;
+
   constructor(field: string, reason: string) {
     super(ErrorCode.MISSING_REQUIRED_FIELD, `参数校验失败: ${field}`, reason, 400);
     this.name = 'ValidationError';
+    this.fieldName = field;
   }
 }

@@ -34,11 +34,13 @@ export interface CityTransport {
   departTime: string;
   arriveTime: string;
   durationMinutes: number;
-  pricePerPerson: { secondClass: number; firstClass: number };
+  pricePerPerson: Record<string, number>;
   departureStation: string;
   arrivalStation: string;
-  bookingUrl: string;
+  bookingUrl?: string;
   note: string;
+  isOvernight?: boolean;
+  deepLink?: { platform: string; url: string };
 }
 
 export const CITY_DATA: Record<string, CityData> = {
@@ -836,6 +838,9 @@ export const CITY_DATA: Record<string, CityData> = {
   },
 };
 
+/** 出发时段类型 */
+export type TimePeriod = 'morning' | 'afternoon' | 'evening';
+
 /** 城际交通 mock 路由表 */
 const TRANSPORT_ROUTES: Record<string, CityTransport> = {
   北京_上海: {
@@ -1032,21 +1037,93 @@ const TRANSPORT_ROUTES: Record<string, CityTransport> = {
   },
 };
 
-/** 获取两个城市之间的 mock 交通方案 */
-export function getMockTransport(from: string, to: string): CityTransport {
+/** 获取两个城市之间的 mock 交通方案，按出发时段筛选 */
+export function getMockTransport(from: string, to: string, timePeriod?: string): CityTransport {
   const key = `${from}_${to}`;
-  return (
-    TRANSPORT_ROUTES[key] ?? {
-      type: 'high_speed_rail',
-      trainNumber: `G${1000 + Math.floor(Math.random() * 9000)}`,
-      departTime: '08:00',
-      arriveTime: '12:00',
-      durationMinutes: 240,
-      pricePerPerson: { secondClass: 400, firstClass: 640 },
-      departureStation: `${from}站`,
-      arrivalStation: `${to}站`,
-      bookingUrl: 'https://www.12306.cn',
-      note: '⚠️ 车次信息仅供参考，请尽快到 12306 / 携程 / 飞猪 订票',
-    }
-  );
+  const baseFallback: CityTransport = {
+    type: 'high_speed_rail',
+    trainNumber: `G${1000 + Math.floor(Math.random() * 9000)}`,
+    departTime: '08:00',
+    arriveTime: '12:00',
+    durationMinutes: 240,
+    pricePerPerson: { secondClass: 400, firstClass: 640 },
+    departureStation: `${from}站`,
+    arrivalStation: `${to}站`,
+    bookingUrl: 'https://www.12306.cn',
+    note: '⚠️ 车次信息仅供参考，请尽快到 12306 / 携程 / 飞猪 订票',
+  };
+
+  // 为常见长途路线生成多时段 mock 车次
+  if (timePeriod === 'afternoon') {
+    const afternoonTrains: Record<string, CityTransport> = {
+      北京_长沙: {
+        type: 'high_speed_rail',
+        trainNumber: 'G505',
+        departTime: '15:05',
+        arriveTime: '20:41',
+        durationMinutes: 336,
+        pricePerPerson: { secondClass: 649, firstClass: 1038 },
+        departureStation: '北京西站',
+        arrivalStation: '长沙南站',
+        bookingUrl: 'https://www.12306.cn',
+        note: '⚠️ 下午出发，当天晚上抵达。车次信息仅供参考，请尽快到 12306 / 携程 / 飞猪 订票',
+      },
+      北京_上海: {
+        type: 'high_speed_rail',
+        trainNumber: 'G17',
+        departTime: '15:00',
+        arriveTime: '19:28',
+        durationMinutes: 268,
+        pricePerPerson: { secondClass: 553, firstClass: 933 },
+        departureStation: '北京南站',
+        arrivalStation: '上海虹桥站',
+        bookingUrl: 'https://www.12306.cn',
+        note: '⚠️ 下午出发，当天晚上抵达。车次信息仅供参考，请尽快到 12306 / 携程 / 飞猪 订票',
+      },
+      北京_成都: {
+        type: 'high_speed_rail',
+        trainNumber: 'G89',
+        departTime: '15:00',
+        arriveTime: '22:31',
+        durationMinutes: 451,
+        pricePerPerson: { secondClass: 790, firstClass: 1250 },
+        departureStation: '北京西站',
+        arrivalStation: '成都东站',
+        bookingUrl: 'https://www.12306.cn',
+        note: '⚠️ 下午出发，当天深夜抵达。车次信息仅供参考，请尽快到 12306 / 携程 / 飞猪 订票',
+      },
+    };
+    if (afternoonTrains[key]) return afternoonTrains[key];
+    // 没有专用 afternoon 车次时，将 morning 车次向后平移
+    const base = TRANSPORT_ROUTES[key] ?? baseFallback;
+    const shiftHours = 6; // 延后 6 小时到下午
+    const shiftTime = (t: string) => {
+      const [h, m] = t.split(':').map(Number);
+      const newH = h + shiftHours;
+      return `${String(newH).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    };
+    return {
+      ...base,
+      trainNumber: `D${1000 + Math.floor(Math.random() * 9000)}`,
+      departTime: shiftTime(base.departTime),
+      arriveTime: shiftTime(base.arriveTime),
+      note: '⚠️ 下午出发班次（mock）。车次信息仅供参考，请尽快到 12306 / 携程 / 飞猪 订票',
+    };
+  }
+
+  if (timePeriod === 'evening') {
+    return {
+      ...(TRANSPORT_ROUTES[key] ?? baseFallback),
+      type: 'normal_train',
+      trainNumber: `Z${100 + Math.floor(Math.random() * 900)}`,
+      departTime: '22:00',
+      arriveTime: '次日 07:00',
+      durationMinutes: 540,
+      pricePerPerson: { 硬卧: 300, 软卧: 500 },
+      isOvernight: true,
+      note: '⚠️ 夜间班次（mock），含卧铺。车次信息仅供参考，请尽快到 12306 / 携程 / 飞猪 订票',
+    };
+  }
+
+  return TRANSPORT_ROUTES[key] ?? baseFallback;
 }

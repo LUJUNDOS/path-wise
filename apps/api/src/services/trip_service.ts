@@ -108,6 +108,11 @@ export { getMockTransport, type CityData, type CityTransport } from '../data/moc
 export function validateTripRequest(req: TripGenerateRequest): TripValidationResponse {
   const conflicts: TripValidationResponse['conflicts'] = [];
 
+  // 防护：请求体缺少必填字段时优雅降级，避免 TypeError 导致 500
+  if (!req.preferences || !req.travelers) {
+    return { valid: true, conflicts: [] };
+  }
+
   // budget + accommodation 冲突
   if (
     req.preferences.budget === 'economy' &&
@@ -129,6 +134,45 @@ export function validateTripRequest(req: TripGenerateRequest): TripValidationRes
       message: '同行有老人，高强度节奏可能较辛苦，建议调整为适中节奏',
       suggestion: { action: 'set_pace', value: 'moderate' },
     });
+  }
+
+  // departure timePeriod + actual current time 冲突
+  // 用户选上午出发，但今天是下午 → 上午已过，出发时间不合逻辑
+  if (req.departure?.date && req.departure?.timePeriod) {
+    const today = new Date();
+    const todayStr = today.toISOString().slice(0, 10); // YYYY-MM-DD
+    const nowHour = today.getHours();
+
+    if (req.departure.date === todayStr) {
+      const PERIOD_HOURS: Record<string, { start: number; end: number }> = {
+        morning: { start: 5, end: 12 },
+        afternoon: { start: 12, end: 18 },
+        evening: { start: 18, end: 24 },
+      };
+      const timeWindow = PERIOD_HOURS[req.departure.timePeriod];
+      if (timeWindow && nowHour > timeWindow.end) {
+        const labels: Record<string, string> = {
+          morning: '上午',
+          afternoon: '下午',
+          evening: '晚上',
+        };
+        const label = labels[req.departure.timePeriod] ?? req.departure.timePeriod;
+        const suggestionMap: Record<string, string> = {
+          morning: 'afternoon',
+          afternoon: 'evening',
+          evening: 'morning',
+        };
+        conflicts.push({
+          type: 'departure_time_mismatch',
+          severity: 'warning',
+          message: `出发日期为今天（${todayStr}），但当前时间已过${label}（${timeWindow.end}:00）。建议调整出发时段`,
+          suggestion: {
+            action: 'set_timePeriod',
+            value: suggestionMap[req.departure.timePeriod] ?? 'afternoon',
+          },
+        });
+      }
+    }
   }
 
   return { valid: true, conflicts };
@@ -345,6 +389,12 @@ export interface GenerateDayParams {
   previousDays: DayPlan[];
   /** 出发日期 (YYYY-MM-DD)，用于计算每天的日期 */
   departureDate: string;
+  /** 出发城市（用于返程方向） */
+  departureCity?: string;
+  /** 是否要生成返程交通（UT-PROMPT-006） */
+  needsReturnTransport?: boolean;
+  /** 返程交通偏好 */
+  returnTransportPref?: TripGenerateRequest['returnTransportPref'];
   /** 强制指定 LLM 提供商（用于测试），默认自动路由 */
   forceProvider?: import('../adapters/llm_router.js').LLMProvider;
 }
@@ -375,6 +425,10 @@ export async function generateDay(params: GenerateDayParams): Promise<DayPlan> {
     previousDays,
     forceProvider,
     departureDate,
+    isLastDay,
+    departureCity,
+    needsReturnTransport,
+    returnTransportPref,
   } = params;
 
   // 基于用户请求的实际出发日期计算每天日期
@@ -411,6 +465,10 @@ export async function generateDay(params: GenerateDayParams): Promise<DayPlan> {
     transport,
     cityData: cityData as unknown as Record<string, unknown> | null,
     previousDays,
+    needsReturnTransport,
+    returnTransportPref,
+    isLastDay,
+    departureCity,
   });
 
   try {

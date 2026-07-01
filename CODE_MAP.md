@@ -116,14 +116,20 @@ path-wise/
 
 ### 2.4 服务 · `src/services/`
 
-| 文件                                                                       | 行  | 职责                                                            | 状态                         |
-| -------------------------------------------------------------------------- | --- | --------------------------------------------------------------- | ---------------------------- |
-| [trip_service.ts](apps/api/src/services/trip_service.ts)                   | 133 | 攻略生成编排（validate / CRUD / export / regenerate）           | MVP stub                     |
-| [city_service.ts](apps/api/src/services/city_service.ts)                   | 132 | 城市知识库查询（searchPOI / getPOIDetail / getSupportedCities） | Mock 长沙 3 POI + 北京 1 POI |
-| [transport_service.ts](apps/api/src/services/transport_service.ts)         | 122 | 大交通方案 + 市内路线规划                                       | Mock 北京→长沙 3 方案        |
-| [accommodation_service.ts](apps/api/src/services/accommodation_service.ts) | 93  | 住宿推荐 + 预约链接                                             | Mock 长沙 2 酒店             |
-| [share_service.ts](apps/api/src/services/share_service.ts)                 | 106 | 分享 Token + 修改建议 CRUD                                      | MVP stub                     |
-| [user_service.ts](apps/api/src/services/user_service.ts)                   | 39  | 用户偏好读写                                                    | 默认固定值                   |
+| 文件                                                                                 | 行  | 职责                                                            | 状态                         |
+| ------------------------------------------------------------------------------------ | --- | --------------------------------------------------------------- | ---------------------------- |
+| [trip_service.ts](apps/api/src/services/trip_service.ts)                             | 133 | 攻略生成编排（validate / CRUD / export / regenerate）           | MVP stub                     |
+| [trip_engine.ts](apps/api/src/services/trip_engine.ts)                               | 350 | Trip Lifecycle 引擎 — 时间轴初始化（ENGINE-001）                | ✅ 已交付                    |
+| [trip_engine.test.ts](apps/api/src/services/trip_engine.test.ts)                     | 350 | ENGINE-001 单元测试 — 32 用例覆盖日类型/边界/时间窗口/返程日    | ✅ 全部通过                  |
+| [trip_engine_candidate.ts](apps/api/src/services/trip_engine_candidate.ts)           | 230 | Trip Lifecycle 引擎 — 候选池生成与过滤（ENGINE-002）            | ✅ 已交付                    |
+| [trip_engine_candidate.test.ts](apps/api/src/services/trip_engine_candidate.test.ts) | 320 | ENGINE-002 单元测试 — 29 用例覆盖构建/四维过滤/边界/配置        | ✅ 全部通过                  |
+| [trip_engine_fill.ts](apps/api/src/services/trip_engine_fill.ts)                     | 320 | Trip Lifecycle 引擎 — 时间轴填充 贪心+回溯（ENGINE-003）        | ✅ 已交付                    |
+| [trip_engine_fill.test.ts](apps/api/src/services/trip_engine_fill.test.ts)           | 800 | ENGINE-003 单元测试 — 76 用例覆盖评分/填充/回溯/体力/边界       | ✅ 全部通过                  |
+| [city_service.ts](apps/api/src/services/city_service.ts)                             | 132 | 城市知识库查询（searchPOI / getPOIDetail / getSupportedCities） | Mock 长沙 3 POI + 北京 1 POI |
+| [transport_service.ts](apps/api/src/services/transport_service.ts)                   | 122 | 大交通方案 + 市内路线规划                                       | Mock 北京→长沙 3 方案        |
+| [accommodation_service.ts](apps/api/src/services/accommodation_service.ts)           | 93  | 住宿推荐 + 预约链接                                             | Mock 长沙 2 酒店             |
+| [share_service.ts](apps/api/src/services/share_service.ts)                           | 106 | 分享 Token + 修改建议 CRUD                                      | MVP stub                     |
+| [user_service.ts](apps/api/src/services/user_service.ts)                             | 39  | 用户偏好读写                                                    | 默认固定值                   |
 
 ### 2.5 适配器 · `src/adapters/`
 

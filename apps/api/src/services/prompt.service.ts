@@ -125,6 +125,14 @@ export interface DayGenerationPromptParams {
   cityData: Record<string, unknown> | null;
   /** 前几天的行程（用于上下文衔接） */
   previousDays: DayPlan[];
+  /** 是否要生成返程交通（UT-PROMPT-006） */
+  needsReturnTransport?: boolean;
+  /** 返程交通偏好 */
+  returnTransportPref?: TripGenerateRequest['returnTransportPref'];
+  /** 是否是整个行程的最后一天 */
+  isLastDay?: boolean;
+  /** 出发城市（用于返程方向） */
+  departureCity?: string;
 }
 
 /**
@@ -143,6 +151,10 @@ export function buildDayGenerationPrompt(params: DayGenerationPromptParams): str
     transport,
     cityData,
     previousDays,
+    needsReturnTransport,
+    returnTransportPref,
+    isLastDay,
+    departureCity,
   } = params;
 
   const budgetLabel =
@@ -240,6 +252,38 @@ export function buildDayGenerationPrompt(params: DayGenerationPromptParams): str
     parts.push(`请在输出中提供 accommodation 字段，从知识库的 hotels 中选择合适的酒店。`);
     parts.push(`checkInDate 为 ${date}，checkOutDate 为离开日，共 ${daysInCity} 晚。`);
     parts.push(`预算偏好为 ${budgetLabel}，请选择匹配的酒店。`);
+  }
+
+  // 返程交通（UT-PROMPT-006：needsReturnTransport=true 且是最后一天）
+  if (needsReturnTransport && isLastDay) {
+    const safeDepartureCity = departureCity ? sanitizePromptValue(departureCity, 50) : '出发城市';
+    const returnPref = returnTransportPref ?? 'auto';
+    const returnPrefLabel =
+      returnPref === 'auto'
+        ? '由 AI 智能推荐'
+        : returnPref === 'high_speed_rail'
+          ? '高铁/动车'
+          : returnPref === 'normal_train'
+            ? '普通火车'
+            : returnPref === 'flight'
+              ? '飞机'
+              : returnPref === 'bus'
+                ? '大巴'
+                : '智能推荐';
+
+    parts.push(``);
+    parts.push(`## 返程交通要求`);
+    parts.push(`这是整个行程的最后一天，需要安排返程交通。`);
+    parts.push(`- 出发城市（末站）：${safeCityName}`);
+    parts.push(`- 返程目的地：${safeDepartureCity}`);
+    parts.push(`- 返程交通偏好：${returnPrefLabel}（${returnPref}）`);
+    parts.push(`- dayType 必须设置为 "transit_return"`);
+    parts.push(`- 请将返程大交通作为 timeline 的最后一个条目（type: transport）`);
+    parts.push(`- 白天可以安排游玩活动，但必须在交通出发时间前预留足够时间`);
+    parts.push(
+      `- 根据交通类型预留合理的提前到达时间：航班 2 小时，高铁/火车 1.5 小时，大巴 1 小时`,
+    );
+    parts.push(`- 需要在 transport 字段中填入返程交通信息`);
   }
 
   parts.push(``);

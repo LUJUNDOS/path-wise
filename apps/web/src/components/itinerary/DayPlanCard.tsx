@@ -1,6 +1,6 @@
 import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { DayPlan } from '@path-wise/shared';
+import type { DayPlan, DayType } from '@path-wise/shared';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -20,19 +20,9 @@ interface DayPlanCardProps {
   onToggle?: () => void;
 }
 
-interface TransportInfoCardProps {
-  transport: Record<string, unknown> | null | undefined;
-  className?: string;
-}
-
-interface AccommodationCardProps {
-  accommodation: NonNullable<DayPlan['accommodation']>;
-  className?: string;
-}
-
 // ---- Constants ----
 
-const DAY_TYPE_LABELS: Record<string, string> = {
+const DAY_TYPE_LABELS: Record<DayType, string> = {
   transit_departure: '出发日',
   city_exploration: '探索日',
   transit_transfer: '中转日',
@@ -113,7 +103,9 @@ export function DayPlanCard({
         <CardContent className="space-y-3 pt-0">
           {/* Transport info for departure/transfer days */}
           {dayPlan.transport &&
-            (dayPlan.dayType === 'transit_departure' || dayPlan.dayType === 'transit_transfer') && (
+            (dayPlan.dayType === 'transit_departure' ||
+              dayPlan.dayType === 'transit_transfer' ||
+              dayPlan.dayType === 'transit_return') && (
               <TransportInfoCard transport={dayPlan.transport} />
             )}
 
@@ -156,4 +148,4 @@ export function DayPlanCard({
 }
 
 // Re-exports
-export type { DayPlanCardProps, TransportInfoCardProps, AccommodationCardProps };
+export type { DayPlanCardProps };
